@@ -76,7 +76,7 @@ export async function fillUserOp(hre: HardhatRuntimeEnvironment, userOp:Partial<
   }
   userOp.callGasLimit = hexlify(100000);
   userOp.verificationGasLimit = hexlify(1000000);
-  userOp.preVerificationGas = hexlify(100000);
+  userOp.preVerificationGas = hexlify(4000000);
 
   const gasPrice = (await hre.ethers.provider.getGasPrice()).mul(2)
 
@@ -98,33 +98,13 @@ export async function signUserOpWithPaymaster(hre: HardhatRuntimeEnvironment, us
   return signature.paymasterAndData;
 }
 
-export async function deployFactory(hre: HardhatRuntimeEnvironment, signer?: Signer) : Promise<Delegatable4337AccountFactory> {
-  if(!signer) {
-    signer = hre.ethers.provider.getSigner();
-  }
-  const factory = new Delegatable4337AccountFactory__factory(signer);
-  const deployment = await factory.deploy(config[hre.network.name].entrypoint);
-  return deployment
-}
-
-export function getInitCode(hre: HardhatRuntimeEnvironment, owner : string) : string {
-  const constructorArgs = defaultAbiCoder.encode(["address", "address"], [config[hre.network.name].entrypoint, owner])
-  const bytecode = Delegatable4337AccountFactory__factory.bytecode;
-  const data = hexConcat([config[hre.network.name].factory, "0x0000000000000000000000000000000000000000000000000000000000000000", bytecode, constructorArgs]);
-  return data;
-}
-
-export async function getSender(hre : HardhatRuntimeEnvironment, owner : string) : Promise<Delegatable4337Account> {
-  const signer = hre.ethers.provider.getSigner();
-  const entryPoint = EntryPoint__factory.connect(config[hre.network.name].entrypoint, signer);
-  const initCode = getInitCode(hre, owner);
-  console.log("initCode:", initCode)
-  const sender : string = await entryPoint.getSenderAddress(initCode).then(x => {
-    throw new Error("should be reverted");
-  }).catch((e) => {
-    const data = e.message.split('0x6ca7b806')[1].split("\"")[0];
-    const addr = hre.ethers.utils.getAddress('0x' + data.slice(24, 64));
-    return addr;
-  });
-  return Delegatable4337Account__factory.connect(sender, hre.ethers.provider);
+export async function deployAccount(hre: HardhatRuntimeEnvironment, owner : string, signer: Signer) : Promise<Delegatable4337Account> {
+  const account = await new Delegatable4337Account__factory(signer).deploy(config[hre.network.name].entrypoint, owner);
+  // verify contract
+  //
+  // await hre.run("verify:verify", {
+  //   address: account.address,
+  //   constructorArguments: [config[hre.network.name].entrypoint, owner],
+  // });
+  return account;
 }

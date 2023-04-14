@@ -1,13 +1,13 @@
 import { HardhatUserConfig } from "hardhat/config";
 import fs from 'fs'
 import { task } from "hardhat/config";
-import { sendUserOperation, callData, fillUserOp, getInitCode, getSender, signUserOp, signUserOpWithPaymaster, estimateUserOperationGas, getUserOperationReceipt, deployFactory } from "./scripts/runOp";
+import { sendUserOperation, callData, fillUserOp, signUserOp, signUserOpWithPaymaster, estimateUserOperationGas, getUserOperationReceipt, deployAccount } from "./scripts/runOp";
 import "@nomiclabs/hardhat-ethers";
 import { hexlify } from "ethers/lib/utils";
 import { Signer, Wallet, ethers } from "ethers";
 import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { Delegatable4337AccountFactory } from "./typechain-types";
+import { Delegatable4337Account, Delegatable4337Account__factory } from "./typechain-types";
 require('dotenv').config();
 
 const infuraKey = process.env.INFURA_KEY;
@@ -19,6 +19,7 @@ if (infuraKey == null) {
 if (mnemonicFileName == null) {
   throw new Error("Please set your MNEMONIC_FILE in a .env file");
 }
+
 let mnemonic: string
 if (fs.existsSync(mnemonicFileName)) {
   mnemonic = fs.readFileSync(mnemonicFileName, 'ascii').trim()
@@ -54,30 +55,32 @@ const config: HardhatUserConfig = {
   }
 };
 
-const paymasterFlow = async (hre: any, owner: string, usePaymaster = true) => {
-  console.log("Getting sender...")
-    const sender = await getSender(hre, owner);
-    console.log("Got sender:", sender.address)
+const paymasterFlow = async (hre: any, contract?: string, usePaymaster = true) => {
+    console.log("Getting signer...")
+    // get hardhat signer as owner
+    const signer = await hre.ethers.getSigner()
+    const signerAddress = await signer.getAddress()
+    console.log("Got signer:", signerAddress)
     let initCode = "0x";
-    if(await hre.ethers.provider.getCode(sender.address) == '0x') {
-      console.log("Sender is not deployed, generating initCode...");
-      initCode = getInitCode(hre, owner);
+
+    let delegatable4337Account
+    if (contract) {
+      delegatable4337Account = new Delegatable4337Account__factory(signer).attach(contract)
+      console.log("Delegatable4337Account attached:", delegatable4337Account.address);
+    } else {
+      console.log("Delegatable4337Account is not deployed, deploying...");
+      delegatable4337Account = await deployAccount(hre, signerAddress, signer);
+      console.log("Delegatable4337Account deployed:", delegatable4337Account.address);
     }
     const userOp = await fillUserOp(hre, {
-      sender: sender.address,
+      sender: delegatable4337Account.address,
       initCode: initCode,
-      callData: await callData(hre, sender.address, 0, "0x"),
+      callData: await callData(hre, signer.address, 0, "0x"),
     });
     console.log("---------------------------------------------")
     console.log("User Operation created:")
     console.log(userOp)
-    let signer : Signer;
-    if(owner.toLowerCase() == "0xae72a48c1a36bd18af168541c53037965d26e4a8") {
-      // test account
-      signer = new Wallet('0x'.padEnd(66, '7'));
-    } else {
-      signer = hre.ethers.provider.getSigner(owner);
-    }
+    
     console.log("---------------------------------------------")
     if (usePaymaster) {
       console.log("Requesting Pimlico paymaster sponsorship (pm_sponsorUserOperation)...")
@@ -104,34 +107,28 @@ const paymasterFlow = async (hre: any, owner: string, usePaymaster = true) => {
     console.log("Pimlico example flow complete!")
 }
 
-
-// combines the two flows - deploy factory and test-paymaster
-task('test-4337-delegatable-flow', 'Test 4337 delegatable flow')
-  .addParam('owner', 'Owner address')
-  .setAction(async (taskArgs, hre) => {
-        await paymasterFlow(hre, taskArgs.owner)
-  })
-
-task('get-sender', 'Get sender address')
-  .addParam('owner', 'Owner address')
-  .setAction(async (taskArgs, hre) => {
-    const sender = await getSender(hre,taskArgs.owner);
-    console.log("Sender address:" + sender.address);
-  });
-
 // test with paymaster flow and bundler flow - api key should be loaded up with balance for this to work
 task("test-paymaster", "Test paymaster")
-  .addParam('owner', 'Owner address')
+  .addOptionalParam('contract', 'Delegatable4337Contract address')
   .setAction(async (taskArgs, hre) => {
-    paymasterFlow(hre, taskArgs.owner)
+    await paymasterFlow(hre, taskArgs.contract)
   });
 
 // test with bundler flow only
 task("test-bundler", "Test bundler")
-  .addParam('owner', 'Owner address')
-  .addParam('nonce', 'Nonce')
+  .addOptionalParam('contract', 'Delegatable4337Contract address')
   .setAction(async (taskArgs, hre) => {
-    paymasterFlow(hre, taskArgs.owner, false)
+    paymasterFlow(hre, taskArgs.contract, false)
   });
+
+// verify contract on etherscan
+task("verify", "Verifies contract on etherscan")
+  .setAction(async (taskArgs, hre) => {
+    await hre.run("verify:verify", {
+      address: "0x18611e0949cc7b950afe144a8f280f96ab4fb6f6",
+      constructorArguments: [
+        "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789", "0x14a004ce9a5d7d94547e48315c0cd3c1b9c40c32"
+      ]})})
+      
 
 export default config;
