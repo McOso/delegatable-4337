@@ -17,6 +17,8 @@ import {BytesLib} from "./libraries/BytesLib.sol";
 
 import {SimpleMultisig} from "./SimpleMultisig.sol";
 
+import "hardhat/console.sol";
+
 // EIP 4337 Methods
 struct UserOperation {
     address sender;
@@ -149,9 +151,14 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
     external returns (uint256 validationData) {
+        console.log("start");
         _requireFromEntryPointOrOwner();
+        console.log("passed first check");
         validationData = _validateSignature(userOp, userOpHash);
+        console.log("asdf");
+        console.log("sig check: %s", validationData);
         _payPrefund(missingAccountFunds);
+        console.log("missing account funds: %s", missingAccountFunds);
     }
 
     /**
@@ -176,11 +183,17 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
         _requireFromEntryPointOrOwner();
 
+        console.log("ashdakdh");
+
         // split signature into signature and delegation
         (bytes memory sig, bytes memory del) = _splitSignature(userOp.signature);
+
+        console.log("sig split");
         
         // Decode delegations
         SignedDelegation[] memory delegations = decodeDelegationArray(del);
+
+                console.log("decode delegation araray");
 
         address canGrant = address(this);
         bytes32 authHash = 0x0;
@@ -230,12 +243,16 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
             }
         }
 
+                console.log("passed for loop");
+
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(
             userOpHash,
             sig
         );
+
+        console.log("sig valid apparantly %s", uint256(bytes32(result)));
         // require(result == 0x1626ba7e, "INVALID_SIGNATURE");
         if (result != 0x1626ba7e){
             return 1;
@@ -262,8 +279,8 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
     // splits signature fields with the asumptions that the signature is first bytes32 and the delegation is the rest.
     function _splitSignature(bytes memory signature) internal view returns (bytes memory, bytes memory) {
-        bytes memory sig = BytesLib.slice(signature, 0, 32);
-        bytes memory delegation = BytesLib.slice(signature, 32, (signature.length - 32));
+        bytes memory sig = BytesLib.slice(signature, 0, 65);
+        bytes memory delegation = BytesLib.slice(signature, 65, (signature.length - 65));
         return (sig, delegation);
     }
 
@@ -281,6 +298,9 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
     }
 
     function decodeDelegationArray(bytes memory encodedDelegationArray) public pure returns (SignedDelegation[] memory delegationArray) {
+        if (encodedDelegationArray.length == 0) {
+            return new SignedDelegation[](0);
+        }
         delegationArray = abi.decode(encodedDelegationArray, (SignedDelegation[]));
     }
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "hardhat/console.sol";
 
 contract SimpleMultisig {
     using ECDSA for bytes32;
@@ -29,6 +30,7 @@ contract SimpleMultisig {
         returns (bytes4)
     {
         uint8 signatureCount = uint8(_signatures.length / 65);
+        console.log("sigcount %s", uint256(signatureCount));
 
         if (signatureCount < threshold) {
             return 0;
@@ -57,6 +59,7 @@ contract SimpleMultisig {
 
             // Recover the signer's address
             address recoveredAddress = ecrecover(_hash, v, r, s);
+            console.log("RECOVERED %s", recoveredAddress);
 
             // If the address is the zero address, the signature recovery has failed
             if (recoveredAddress == address(0)) {
