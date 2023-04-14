@@ -1,4 +1,4 @@
-const { }
+const sigUtil = require('@metamask/eth-sig-util');
 
 const signTypedData = (domain, types) => async (fromAddress, primaryType, message) => {
   try {
@@ -59,7 +59,7 @@ const verifyTypedDataSignature = (domain, types) => (signature, message, expecte
   };
 
   // Verify the signature using eth-sig-util
-  const signer = ethSigUtil.recoverTypedSignature_v4({
+  const signer = sigUtil.recoverTypedSignature_v4({
     data: typedData,
     sig: signature,
   });
