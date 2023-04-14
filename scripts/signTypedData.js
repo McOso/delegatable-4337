@@ -56,4 +56,11 @@ const verifyTypedDataSignature = (domain, types) => (signature, message, expecte
   return signer;
 };
 
-export { signTypedData, verifyTypedDataSignature }
+const createSigningUtil = function (domain, types) => {
+  return {
+    signTypedData: signTypedData(domain, types),
+    verifyTypedDataSignature: verifyTypedDataSignature(domain, types),
+  };
+}
+
+export { signTypedData, verifyTypedDataSignature, createSigningUtil }
