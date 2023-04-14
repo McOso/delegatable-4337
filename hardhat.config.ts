@@ -41,7 +41,12 @@ const config: HardhatUserConfig = {
   typechain: {
     target: "ethers-v5",
   },
-  solidity: "0.8.18",
+  solidity: {
+    version: "0.8.18",
+    settings: {
+      viaIR: true,
+    },
+  },
   networks: {
     goerli: getNetwork('goerli'),
     arbitrum: getNetwork('arbitrum-mainnet'),
@@ -51,7 +56,7 @@ const config: HardhatUserConfig = {
         mnemonic: mnemonic,
       },
     },
-  }
+  },
 };
 
 const paymasterFlow = async (hre: any, owner: string, usePaymaster = true) => {

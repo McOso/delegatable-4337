@@ -60,8 +60,6 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
     bytes32 public immutable domainHash;
 
-    address public owner;
-
     IEntryPoint private immutable _entryPoint;
 
     modifier onlyOwner() {
@@ -97,9 +95,8 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
-    constructor(IEntryPoint anEntryPoint, address anOwner) {
+    constructor(IEntryPoint anEntryPoint, address[] memory _owners, uint8 _threshold) SimpleMultisig(_owners, _threshold) {
         _entryPoint = anEntryPoint;
-        owner = anOwner;
         domainHash = getEIP712DomainHash(
             "Smart Account",
             "1",
@@ -110,7 +107,7 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
     function _onlyOwner() internal view {
         //directly from EOA owner, or through the account itself (which gets redirected through execute())
-        require(_msgSender() == owner || _msgSender() == address(this), "only owner");
+        require(_msgSender() == address(this), "only owner");
     }
 
     /**
@@ -134,7 +131,7 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
     // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrOwner() internal view {
-        require(_msgSender() == address(entryPoint()) || _msgSender() == owner, "account: not Owner or EntryPoint");
+        require(_msgSender() == address(entryPoint()) || _msgSender() == address(this), "account: not Owner or EntryPoint");
     }
 
     /**
@@ -176,8 +173,7 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
         // Decode delegations
         SignedDelegation[] memory delegations = decodeDelegationArray(del);
 
-        address intendedSender = userOp.sender;
-        address canGrant = intendedSender;
+        address canGrant = address(this);
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = delegations.length;
@@ -201,29 +197,26 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
                     "DelegatableCore:invalid-authority-delegation-link"
                 );
 
-                bytes32 delegationHash = getDelegationPacketHash(delegation);
-
                 // Each delegation can include any number of caveats.
                 // A caveat is any condition that may reject a proposed transaction.
                 // The caveats specify an external contract that is passed the proposed tx,
                 // As well as some extra terms that are used to parameterize the enforcer.
-                uint256 caveatsLength = delegation.caveats.length;
-                for (uint256 c = 0; c < caveatsLength; c++) {
+                // uint256 caveatsLength = delegation.caveats.length;
+                for (uint256 c = 0; c < delegation.caveats.length; c++) {
                     CaveatEnforcer enforcer = CaveatEnforcer(
                         delegation.caveats[c].enforcer
                     );
 
-                    bool caveatSuccess = enforcer.enforceCaveat(
+                    require(enforcer.enforceCaveat(
                         delegation.caveats[c].terms,
                         userOp.callData,
-                        delegationHash
-                    );
-                    require(caveatSuccess, "DelegatableCore:caveat-rejected");
+                        getDelegationPacketHash(delegation)
+                    ), "DelegatableCore:caveat-rejected");
                 }
 
                 // Store the hash of this delegation in `authHash`
                 // That way the next delegation can be verified against it.
-                authHash = delegationHash;
+                authHash = getDelegationPacketHash(delegation);
                 canGrant = delegation.delegate;
             }
         }
@@ -296,14 +289,14 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
         entryPoint().depositTo{value : msg.value}(address(this));
     }
 
-    /**
-     * withdraw value from the account's deposit
-     * @param withdrawAddress target to send to
-     * @param amount to withdraw
-     */
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
-        entryPoint().withdrawTo(withdrawAddress, amount);
-    }
+    // /**
+    //  * withdraw value from the account's deposit
+    //  * @param withdrawAddress target to send to
+    //  * @param amount to withdraw
+    //  */
+    // function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
+    //     entryPoint().withdrawTo(withdrawAddress, amount);
+    // }
 
     function _msgSender() internal view virtual returns (address sender) {
         if (msg.sender == address(this)) {

@@ -25,7 +25,6 @@ contract SimpleMultisig {
     function isValidSignature(bytes32 _hash, bytes memory _signatures)
         public
         view
-        override
         virtual
         returns (bytes4)
     {
