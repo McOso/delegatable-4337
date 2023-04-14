@@ -1,40 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity 0.8.18;
 
 import {EIP712Decoder, EIP712DOMAIN_TYPEHASH} from "./TypesAndDecoders.sol";
 import {Delegation, Invocation, Invocations, SignedInvocation, SignedDelegation, Transaction, ReplayProtection, CaveatEnforcer} from "./CaveatEnforcer.sol";
 
 abstract contract DelegatableCore is EIP712Decoder {
     /// @notice Account delegation nonce manager
-
-    mapping(address => mapping(uint128 => uint128)) internal multiNonce;
-
-    function getNonce(address intendedSender, uint128 queue)
-        external
-        view
-        returns (uint128)
-    {
-        return multiNonce[intendedSender][queue];
-    }
-
-    function verifyDelegationSignature(SignedDelegation memory signedDelegation)
-        public
-        view
-        virtual
-        returns (address);
-
-    function _enforceReplayProtection(
-        address intendedSender,
-        ReplayProtection memory protection
-    ) internal {
-        uint128 queue = protection.queue;
-        uint128 nonce = protection.nonce;
-        require(
-            nonce == (multiNonce[intendedSender][queue] + 1),
-            "DelegatableCore:nonce2-out-of-order"
-        );
-        multiNonce[intendedSender][queue] = nonce;
-    }
 
     /**
      * validate the signature is valid for this message.
@@ -168,51 +139,8 @@ abstract contract DelegatableCore is EIP712Decoder {
         }
     }
 
-    function _msgSender() internal view virtual returns (address sender) {
-        if (msg.sender == address(this)) {
-            bytes memory array = msg.data;
-            uint index = msg.data.length;
-            assembly {
-                sender := and(
-                    mload(add(array, index)),
-                    0xffffffffffffffffffffffffffffffffffffffff
-                )
-            }
-        } else {
-            sender = msg.sender;
-        }
-        return sender;
-    }
 
-    // EIP 4337 Methods
-    struct UserOperation {
-        address sender;
-        uint256 nonce;
-        bytes initCode;
-        bytes callData;
-        uint256 callGasLimit;
-        uint256 callGasLimit;
-        uint256 verificationGasLimit;
-        uint256 preVerificationGas;
-        uint256 maxFeePerGas;
-        uint256 maxPriorityFeePerGas;
-        bytes paymasterAndData;
-        bytes signature;
-    }
 
-    /**
-     * Validate user's signature and nonce.
-     * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
-     */
-    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
-    external override virtual returns (uint256 validationData) {
-        _requireFromEntryPoint();
-        validationData = _validateSignature(userOp);
-        if (userOp.initCode.length == 0) {
-            _validateAndUpdateNonce(userOp);
-        }
-        _payPrefund(missingAccountFunds);
-    }
 
     /**
      * validate the current nonce matches the UserOperation nonce.
@@ -244,7 +172,7 @@ abstract contract DelegatableCore is EIP712Decoder {
         view
         returns (bytes4 magicValue)
     {
-        address owner = /* Get the contract's owner address */;
+        address owner = owner();
 
         if (_isContract(owner)) {
             // Proxy the call to the contract's owner

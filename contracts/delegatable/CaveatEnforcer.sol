@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity 0.8.18;
 
 import "./TypesAndDecoders.sol";
 
 abstract contract CaveatEnforcer {
     function enforceCaveat(
         bytes calldata terms,
-        Transaction calldata tx,
+        bytes calldata func,
         bytes32 delegationHash
     ) public virtual returns (bool);
 }

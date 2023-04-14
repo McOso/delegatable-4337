@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.18;
 
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
@@ -11,7 +11,24 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
-import "./delegatable/DelegatableCore.sol";
+import {EIP712Decoder, EIP712DOMAIN_TYPEHASH} from "./TypesAndDecoders.sol";
+import {Delegation, Invocation, Invocations, SignedInvocation, SignedDelegation, Transaction, ReplayProtection, CaveatEnforcer} from "./delegatable/CaveatEnforcer.sol";
+
+// EIP 4337 Methods
+struct UserOperation {
+    address sender;
+    uint256 nonce;
+    bytes initCode;
+    bytes callData;
+    uint256 callGasLimit;
+    uint256 callGasLimit;
+    uint256 verificationGasLimit;
+    uint256 preVerificationGas;
+    uint256 maxFeePerGas;
+    uint256 maxPriorityFeePerGas;
+    bytes paymasterAndData;
+    bytes signature;
+}
 
 /**
   * minimal account.
@@ -19,7 +36,7 @@ import "./delegatable/DelegatableCore.sol";
   *  has execute, eth handling methods
   *  has a single signer that can send requests through the entryPoint.
   */
-contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHandler {
+contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHandler {
     using ECDSA for bytes32;
 
     address public owner;
@@ -31,28 +48,10 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
         _;
     }
 
-    function verifyDelegationSignature(SignedDelegation memory signedDelegation)
-        public
-        view
-        virtual
-        override(IDelegatable, DelegatableCore)
-        returns (address)
-    {
-        Delegation memory delegation = signedDelegation.delegation;
-        bytes32 sigHash = getDelegationTypedDataHash(delegation);
-        address recoveredSignatureSigner = recover(
-            sigHash,
-            signedDelegation.signature
-        );
-        return recoveredSignatureSigner;
-    }
-
-
     /// @inheritdoc BaseAccount
     function entryPoint() public view virtual override returns (IEntryPoint) {
         return _entryPoint;
     }
-
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
@@ -64,7 +63,7 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
 
     function _onlyOwner() internal view {
         //directly from EOA owner, or through the account itself (which gets redirected through execute())
-        require(msg.sender == owner || msg.sender == address(this), "only owner");
+        require(_msgSender() == owner || _msgSender() == address(this), "only owner");
     }
 
     /**
@@ -88,17 +87,54 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
 
     // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrOwner() internal view {
-        require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
+        require(_msgSender() == address(entryPoint()) || _msgSender() == owner, "account: not Owner or EntryPoint");
+    }
+
+    /**
+     * Validate user's signature and nonce.
+     * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
+     */
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+    external override virtual returns (uint256 validationData) {
+        _requireFromEntryPointOrOwner();
+        validationData = _validateSignature(userOp);
+        _payPrefund(missingAccountFunds);
+    }
+
+    /**
+     * sends to the entrypoint (msg.sender) the missing funds for this transaction.
+     * subclass MAY override this method for better funds management
+     * (e.g. send to the entryPoint more than the minimum required, so that in future transactions
+     * it will not be required to send again)
+     * @param missingAccountFunds the minimum value this method should send the entrypoint.
+     *  this value MAY be zero, in case there is enough deposit, or the userOp has a paymaster.
+     */
+    function _payPrefund(uint256 missingAccountFunds) internal virtual {
+        if (missingAccountFunds != 0) {
+            (bool success,) = payable(msg.sender).call{value : missingAccountFunds, gas : type(uint256).max}("");
+            (success);
+            //ignore failure (its EntryPoint's job to verify, not account.)
+        }
+    }
+
+    /// implement template method of BaseAccount
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    internal override virtual returns (uint256 validationData) {
+        bytes32 hash = userOpHash.toEthSignedMessageHash();
+        if (owner != hash.recover(userOp.signature))
+            return SIG_VALIDATION_FAILED;
+        return 0;
     }
 
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
 
-        _requireFromEntryPointOrOwner()
+        _requireFromEntryPointOrOwner();
         
-           // Decode delegations
+        // Decode delegations
         SignedDelegation[] calldata delegations = decodeDelegationArray(userOp.signature);
+        // signature needs to also provide... ahem.. a signature.
 
         address intendedSender = userOp.sender;
         address canGrant = intendedSender;
@@ -108,7 +144,7 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
         unchecked {
             for (uint256 d = 0; d < delegationsLength; d++) {
                 SignedDelegation calldata signedDelegation = delegations[d];
-                address delegationSigner = verifyDelegationSignature(signedDelegation);
+                address delegationSigner = verifySignedDelegation(signedDelegation);
 
                 require(
                     delegationSigner == canGrant,
@@ -121,7 +157,8 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
                     "DelegatableCore:invalid-authority-delegation-link"
                 );
 
-                bytes32 delegationHash = GET_SIGNEDDELEGATION_PACKETHASH(signedDelegation);
+                Delegation delegation = signedDelegation.delegation;
+                bytes32 delegationHash = getDelegationPacketHash(delegation);
 
                 // Each delegation can include any number of caveats.
                 // A caveat is any condition that may reject a proposed transaction.
@@ -132,9 +169,10 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
                     CaveatEnforcer enforcer = CaveatEnforcer(
                         delegation.caveats[y].enforcer
                     );
+
                     bool caveatSuccess = enforcer.enforceCaveat(
                         delegation.caveats[y].terms,
-                        userOp.callData,
+                        userOp.calldata,
                         delegationHash
                     );
                     require(caveatSuccess, "DelegatableCore:caveat-rejected");
@@ -168,8 +206,6 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
         // return 0;
     }
 
-
-
     function _call(address target, uint256 value, bytes memory data) internal {
         (bool success, bytes memory result) = target.call{value : value}(data);
         if (!success) {
@@ -201,5 +237,48 @@ contract Delegatable4337Account is DelegatableCore, BaseAccount, TokenCallbackHa
     function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
+
+    function _msgSender() internal view virtual returns (address sender) {
+        if (msg.sender == address(this)) {
+            bytes memory array = msg.data;
+            uint index = msg.data.length;
+            assembly {
+                sender := and(
+                    mload(add(array, index)),
+                    0xffffffffffffffffffffffffffffffffffffffff
+                )
+            }
+        } else {
+            sender = msg.sender;
+        }
+        return sender;
+    }
+
+    // EIP 1271 Methods:
+    bytes4 constant internal MAGICVALUE = 0x1626ba7e;
+
+    function isValidSignature(bytes32 _hash, bytes memory _signature)
+        public
+        view
+        returns (bytes4 magicValue)
+    {
+        address owner = owner();
+
+        // Proxy the call to the contract's owner
+        (bool success, bytes memory result) = owner.staticcall(
+            abi.encodeWithSelector(
+                this.isValidSignature.selector,
+                _hash,
+                _signature
+            )
+        );
+
+        if (success && result.length == 32) {
+            return abi.decode(result, (bytes4));
+        } else {
+            return bytes4(0); // Return an invalid magic value
+        }
+    }
+
 }
 
