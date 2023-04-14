@@ -29,20 +29,33 @@ contract SimpleMultisig {
         virtual
         returns (bytes4)
     {
-        require(_signatures.length % 65 == 0, "SimpleMultisig: Invalid signature length");
-
         uint8 signatureCount = uint8(_signatures.length / 65);
-        require(signatureCount >= threshold, "SimpleMultisig: Not enough signatures");
 
-        mapping(address => bool) memory usedAddresses;
+        if (signatureCount < threshold) {
+            return 0;
+        }
+
+        address[] memory usedAddresses = new address[](signatureCount);
+        bool[] memory isUsed = new bool[](signatureCount);
         uint8 validSignatureCount = 0;
 
         for (uint8 i = 0; i < signatureCount; i++) {
-            bytes memory signature = slice(_signatures, i * 65, 65);
-            address recoveredAddress = _hash.recover(signature);
+            if (_signatures.length < (i + 1) * 65) {
+                break;
+            }
 
-            if (isOwner[recoveredAddress] && !usedAddresses[recoveredAddress]) {
-                usedAddresses[recoveredAddress] = true;
+            bytes memory signature = slice(_signatures, i * 65, 65);
+            address recoveredAddress;
+
+            // Attempt to recover the address from the signature
+            try _hash.recover(signature) returns (address addr) {
+                recoveredAddress = addr;
+            } catch {
+                continue;
+            }
+
+            if (isOwner[recoveredAddress] && !isAddressUsed(usedAddresses, isUsed, recoveredAddress)) {
+                markAddressAsUsed(usedAddresses, isUsed, recoveredAddress);
                 validSignatureCount++;
 
                 if (validSignatureCount >= threshold) {
@@ -53,6 +66,26 @@ contract SimpleMultisig {
 
         return 0;
     }
+
+    function isAddressUsed(address[] memory usedAddresses, bool[] memory isUsed, address addr) private pure returns (bool) {
+        for (uint256 i = 0; i < usedAddresses.length; i++) {
+            if (usedAddresses[i] == addr) {
+                return isUsed[i];
+            }
+        }
+        return false;
+    }
+
+    function markAddressAsUsed(address[] memory usedAddresses, bool[] memory isUsed, address addr) private pure {
+        for (uint256 i = 0; i < usedAddresses.length; i++) {
+            if (usedAddresses[i] == addr || usedAddresses[i] == address(0)) {
+                usedAddresses[i] = addr;
+                isUsed[i] = true;
+                break;
+            }
+        }
+    }
+
 
     function slice(bytes memory data, uint256 start, uint256 length) private pure returns (bytes memory) {
         bytes memory result = new bytes(length);
