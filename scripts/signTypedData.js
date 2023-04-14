@@ -1,13 +1,12 @@
-const signTypedData = (domain, types) => async (fromAddress, message) => {
+const { }
+
+const signTypedData = (domain, types) => async (fromAddress, primaryType, message) => {
   try {
     // Combine the domain and message to create the full typed data object
     const typedData = {
       domain,
-      primaryType: types[0],
-      types: {
-        ...types[1],
-        EIP712Domain: domain.types,
-      },
+      primaryType,
+      types,
       message,
     };
 
@@ -27,6 +26,23 @@ const signTypedData = (domain, types) => async (fromAddress, message) => {
     console.error('Error signing typed data:', err);
     throw err;
   }
+};
+
+const signTypedDataLocal = (domain, types) => (privateKey, primaryType, message) => {
+  const data = {
+    domain,
+    primaryType,
+    types,
+    message,
+  };
+
+  const signature = sigUtil.signTypedData({
+    privateKey,
+    data,
+    version: 'V4',
+  });
+
+  return signature;
 };
 
 // Define a function to verify the signature using eth-sig-util
@@ -56,10 +72,11 @@ const verifyTypedDataSignature = (domain, types) => (signature, message, expecte
   return signer;
 };
 
-const createSigningUtil = function (domain, types) => {
+const createSigningUtil = (domain, types) => {
   return {
     signTypedData: signTypedData(domain, types),
     verifyTypedDataSignature: verifyTypedDataSignature(domain, types),
+    signTypedDataLocal: signTypedDataLocal(domain, types),
   };
 }
 
