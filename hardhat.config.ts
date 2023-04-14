@@ -84,7 +84,7 @@ const paymasterFlow = async (hre: any, contract?: string, usePaymaster = true) =
     const userOp = await fillUserOp(hre, {
       sender: delegatable4337Account.address,
       initCode: initCode,
-      callData: await callData(hre, signer.address, 0, "0x"),
+      callData: await callData(hre, delegatable4337Account.address, signer.address, 0, "0x"),
     });
     console.log("---------------------------------------------")
     console.log("User Operation created:")

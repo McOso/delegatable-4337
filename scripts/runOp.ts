@@ -1,7 +1,7 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { BigNumberish, Signer } from "ethers";
 import { EntryPoint__factory } from "@account-abstraction/contracts";
-import { Delegatable4337Account, Delegatable4337AccountFactory, Delegatable4337Account__factory, Delegatable4337AccountFactory__factory } from "../typechain-types";
+import { Delegatable4337Account, Delegatable4337Account__factory } from "../typechain-types";
 import { arrayify, defaultAbiCoder, hexConcat, hexlify } from "ethers/lib/utils";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
@@ -61,8 +61,8 @@ export async function signUserOp(hre: HardhatRuntimeEnvironment, userOp : UserOp
   return signature;
 }
 
-export async function callData(hre: HardhatRuntimeEnvironment, to : string, value: BigNumberish, data: string, factory?: Delegatable4337AccountFactory) : Promise<string> {
-  const account = Delegatable4337Account__factory.connect(factory?.address ?? config[hre.network.name].factory, hre.ethers.provider);
+export async function callData(hre: HardhatRuntimeEnvironment, accountAddress: string, to : string, value: BigNumberish, data: string) : Promise<string> {
+  const account = Delegatable4337Account__factory.connect(accountAddress, hre.ethers.provider);
   return account.interface.encodeFunctionData('execute', [to, value, data]);
 }
 
@@ -99,7 +99,7 @@ export async function signUserOpWithPaymaster(hre: HardhatRuntimeEnvironment, us
 }
 
 export async function deployAccount(hre: HardhatRuntimeEnvironment, owner : string, signer: Signer) : Promise<Delegatable4337Account> {
-  const account = await new Delegatable4337Account__factory(signer).deploy(config[hre.network.name].entrypoint, owner);
+  const account = await new Delegatable4337Account__factory(signer).deploy(config[hre.network.name].entrypoint, [owner], 1);
   // verify contract
   //
   // await hre.run("verify:verify", {
