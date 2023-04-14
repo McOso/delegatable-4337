@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
-import "./TypesAndDecoders.sol";
+import "./../TypesAndDecoders.sol";
 
 abstract contract CaveatEnforcer {
     function enforceCaveat(

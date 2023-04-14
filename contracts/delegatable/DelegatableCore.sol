@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
-import {EIP712Decoder, EIP712DOMAIN_TYPEHASH} from "./TypesAndDecoders.sol";
+import {EIP712Decoder, EIP712DOMAIN_TYPEHASH} from "./../TypesAndDecoders.sol";
 import {Delegation, Invocation, Invocations, SignedInvocation, SignedDelegation, Transaction, ReplayProtection, CaveatEnforcer} from "./CaveatEnforcer.sol";
 
 abstract contract DelegatableCore is EIP712Decoder {

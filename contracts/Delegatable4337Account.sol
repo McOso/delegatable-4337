@@ -11,8 +11,8 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
-import {EIP712Decoder, EIP712DOMAIN_TYPEHASH} from "./TypesAndDecoders.sol";
-import {Delegation, Invocation, Invocations, SignedInvocation, SignedDelegation, Transaction, ReplayProtection, CaveatEnforcer} from "./delegatable/CaveatEnforcer.sol";
+import {EIP712Decoder} from "./TypesAndDecoders.sol";
+import {Delegation, SignedDelegation, CaveatEnforcer} from "./delegatable/CaveatEnforcer.sol";
 
 // EIP 4337 Methods
 struct UserOperation {
@@ -20,7 +20,6 @@ struct UserOperation {
     uint256 nonce;
     bytes initCode;
     bytes callData;
-    uint256 callGasLimit;
     uint256 callGasLimit;
     uint256 verificationGasLimit;
     uint256 preVerificationGas;
@@ -164,7 +163,6 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
                     "DelegatableCore:invalid-delegation-signer"
                 );
 
-                Delegation calldata delegation = signedDelegation.delegation;
                 require(
                     delegation.authority == authHash,
                     "DelegatableCore:invalid-authority-delegation-link"
@@ -229,7 +227,7 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
 
 
     // splits signature fields with the asumptions that the signature is first bytes32 and the delegation is the rest.
-    function _splitSignature(bytes memory signature) internal view return (bytes memory, bytes memory) {
+    function _splitSignature(bytes memory signature) internal view returns (bytes memory, bytes memory) {
         bytes memory sig = signature.slice(0, 32);
         bytes memory delegation = signature.slice(32, (signature.length - 32));
         return (sig, delegation);
