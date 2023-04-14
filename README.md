@@ -35,3 +35,10 @@ To send a blank transaction to itself through the Pimlico RPC endpoint, sponsore
 For example: `npx hardhat test-paymaster --owner 0x0284EaFa1f47dff44112BDFeBB736B9e85B416c9 --network goerli`
 
 Similar to the previous test, this command will create a sender if needed.
+
+### Generating types and decoders:
+
+```
+rm contracts/TypesAndDecoders.sol && eip712-codegen --input scripts/types.js --entryPoints Delegation > contracts/TypesAndDecoders.sol
+```
+
