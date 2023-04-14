@@ -92,6 +92,15 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
         return _entryPoint;
     }
 
+    /**
+     * Return the account nonce.
+     * This method returns the next sequential nonce.
+     * For a nonce of a specific key, use `entrypoint.getNonce(account, key)`
+     */
+    function getNonce() public view virtual returns (uint256) {
+        return entryPoint().getNonce(address(this), 0);
+    }
+
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
