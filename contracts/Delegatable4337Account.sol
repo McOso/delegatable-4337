@@ -30,6 +30,23 @@ struct UserOperation {
     bytes signature;
 }
 
+abstract contract ERC1271Contract {
+    /**
+     * @dev Should return whether the signature provided is valid for the provided hash
+     * @param _hash      Hash of the data to be signed
+     * @param _signature Signature byte array associated with _hash
+     *
+     * MUST return the bytes4 magic value 0x1626ba7e when function passes.
+     * MUST NOT modify state (using STATICCALL for solc < 0.5, view modifier for solc > 0.5)
+     * MUST allow external calls
+     */
+    function isValidSignature(bytes32 _hash, bytes memory _signature)
+        public
+        view
+        virtual
+        returns (bytes4 magicValue);
+}
+
 /**
   * minimal account.
   *  this is sample minimal account.
@@ -97,7 +114,7 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
     external override virtual returns (uint256 validationData) {
         _requireFromEntryPointOrOwner();
-        validationData = _validateSignature(userOp);
+        validationData = _validateSignature(userOp, userOpHash);
         _payPrefund(missingAccountFunds);
     }
 
@@ -120,27 +137,23 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
-        bytes32 hash = userOpHash.toEthSignedMessageHash();
-        if (owner != hash.recover(userOp.signature))
-            return SIG_VALIDATION_FAILED;
-        return 0;
-    }
-
-    /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
 
         _requireFromEntryPointOrOwner();
+
+        // split signature into signature and delegation
+        (bytes sig, bytes del) = _splitSignature(userOp.signature);
         
         // Decode delegations
-        SignedDelegation[] calldata delegations = decodeDelegationArray(userOp.signature);
-        // signature needs to also provide... ahem.. a signature.
+        SignedDelegation[] calldata delegations = decodeDelegationArray(del);
 
         address intendedSender = userOp.sender;
         address canGrant = intendedSender;
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = delegations.length;
+
+        // TODO: support publishing recipient contracts - using initCode
+        // this might be possible with a caveat enforcer
         unchecked {
             for (uint256 d = 0; d < delegationsLength; d++) {
                 SignedDelegation calldata signedDelegation = delegations[d];
@@ -172,7 +185,7 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
 
                     bool caveatSuccess = enforcer.enforceCaveat(
                         delegation.caveats[y].terms,
-                        userOp.calldata,
+                        userOp.callData,
                         delegationHash
                     );
                     require(caveatSuccess, "DelegatableCore:caveat-rejected");
@@ -184,6 +197,21 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
                 canGrant = delegation.delegate;
             }
         }
+
+        // EIP-1271 signature verification
+        // TODO: may choose 712 decoding for redability
+        bytes4 result = ERC1271Contract(canGrant).isValidSignature(
+            userOpHash,
+            sig
+        );
+        // require(result == 0x1626ba7e, "INVALID_SIGNATURE");
+        if (result != 0x1626ba7e){
+            return 1;
+        }
+
+        return 0;
+
+        // TODO: minimum return is 0 or 1. Add time validation as extras.
 
         // TODO: Return the validation check info. Maybe add time range to the schema.
         // // Perform validation checks
@@ -197,13 +225,14 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
         // validationData = uint256(uint160(sigAuthorizer))
         //     | (uint256(validUntil) << 160)
         //     | (uint256(validAfter) << 208);
-        return;
+    }
 
 
-        // bytes32 hash = userOpHash.toEthSignedMessageHash();
-        // if (owner != hash.recover(userOp.signature))
-        //     return SIG_VALIDATION_FAILED;
-        // return 0;
+    // splits signature fields with the asumptions that the signature is first bytes32 and the delegation is the rest.
+    function _splitSignature(bytes memory signature) internal view return (bytes memory, bytes memory) {
+        bytes memory sig = signature.slice(0, 32);
+        bytes memory delegation = signature.slice(32, (signature.length - 32));
+        return (sig, delegation);
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {
