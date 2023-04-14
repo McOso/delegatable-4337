@@ -9,10 +9,13 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
-import {EIP712Decoder} from "./TypesAndDecoders.sol";
+import {EIP712Decoder, eip712domainTypehash} from "./TypesAndDecoders.sol";
 import {Delegation, SignedDelegation, CaveatEnforcer} from "./delegatable/CaveatEnforcer.sol";
+import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {BytesLib} from "./libraries/BytesLib.sol";
+
+import {SimpleMultisig} from "./Multisig.sol";
 
 // EIP 4337 Methods
 struct UserOperation {
@@ -52,8 +55,10 @@ abstract contract ERC1271Contract {
   *  has execute, eth handling methods
   *  has a single signer that can send requests through the entryPoint.
   */
-contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHandler {
+contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackHandler {
     using ECDSA for bytes32;
+
+    bytes32 public immutable domainHash;
 
     address public owner;
 
@@ -64,8 +69,28 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
         _;
     }
 
-    /// @inheritdoc BaseAccount
-    function entryPoint() public view virtual override returns (IEntryPoint) {
+    function getEIP712DomainHash(
+        string memory contractName,
+        string memory version,
+        uint256 chainId,
+        address verifyingContract
+    ) public pure returns (bytes32) {
+        bytes memory encoded = abi.encode(
+            eip712domainTypehash,
+            keccak256(bytes(contractName)),
+            keccak256(bytes(version)),
+            chainId,
+            verifyingContract
+        );
+        return keccak256(encoded);
+    }
+
+    function getDomainHash() public view virtual override returns (bytes32) {
+        return domainHash;
+    }
+
+
+    function entryPoint() public view returns (IEntryPoint) {
         return _entryPoint;
     }
 
@@ -75,6 +100,12 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
     constructor(IEntryPoint anEntryPoint, address anOwner) {
         _entryPoint = anEntryPoint;
         owner = anOwner;
+        domainHash = getEIP712DomainHash(
+            "Smart Account",
+            "1",
+            block.chainid,
+            address(this)
+        );
     }
 
     function _onlyOwner() internal view {
@@ -111,7 +142,7 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
      * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
-    external override virtual returns (uint256 validationData) {
+    external returns (uint256 validationData) {
         _requireFromEntryPointOrOwner();
         validationData = _validateSignature(userOp, userOpHash);
         _payPrefund(missingAccountFunds);
@@ -135,15 +166,15 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
 
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
+    internal returns (uint256 validationData) {
 
         _requireFromEntryPointOrOwner();
 
         // split signature into signature and delegation
-        (bytes sig, bytes del) = _splitSignature(userOp.signature);
+        (bytes memory sig, bytes memory del) = _splitSignature(userOp.signature);
         
         // Decode delegations
-        SignedDelegation[] calldata delegations = decodeDelegationArray(del);
+        SignedDelegation[] memory delegations = decodeDelegationArray(del);
 
         address intendedSender = userOp.sender;
         address canGrant = intendedSender;
@@ -155,8 +186,10 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
         // this might be possible with a caveat enforcer
         unchecked {
             for (uint256 d = 0; d < delegationsLength; d++) {
-                SignedDelegation calldata signedDelegation = delegations[d];
+                SignedDelegation memory signedDelegation = delegations[d];
                 address delegationSigner = verifySignedDelegation(signedDelegation);
+
+                Delegation memory delegation = signedDelegation.message;
 
                 require(
                     delegationSigner == canGrant,
@@ -168,7 +201,6 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
                     "DelegatableCore:invalid-authority-delegation-link"
                 );
 
-                Delegation delegation = signedDelegation.delegation;
                 bytes32 delegationHash = getDelegationPacketHash(delegation);
 
                 // Each delegation can include any number of caveats.
@@ -178,11 +210,11 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
                 uint256 caveatsLength = delegation.caveats.length;
                 for (uint256 c = 0; c < caveatsLength; c++) {
                     CaveatEnforcer enforcer = CaveatEnforcer(
-                        delegation.caveats[y].enforcer
+                        delegation.caveats[c].enforcer
                     );
 
                     bool caveatSuccess = enforcer.enforceCaveat(
-                        delegation.caveats[y].terms,
+                        delegation.caveats[c].terms,
                         userOp.callData,
                         delegationHash
                     );
@@ -228,8 +260,8 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
 
     // splits signature fields with the asumptions that the signature is first bytes32 and the delegation is the rest.
     function _splitSignature(bytes memory signature) internal view returns (bytes memory, bytes memory) {
-        bytes memory sig = signature.slice(0, 32);
-        bytes memory delegation = signature.slice(32, (signature.length - 32));
+        bytes memory sig = BytesLib.slice(signature, 0, 32);
+        bytes memory delegation = BytesLib.slice(signature, 32, (signature.length - 32));
         return (sig, delegation);
     }
 
@@ -240,6 +272,14 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
                 revert(add(result, 32), mload(result))
             }
         }
+    }
+
+    function encodeDelegationArray(Delegation[] memory delegationArray) public pure returns (bytes memory encodedDelegationArray) {
+        encodedDelegationArray = abi.encode(delegationArray);
+    }
+
+    function decodeDelegationArray(bytes memory encodedDelegationArray) public pure returns (SignedDelegation[] memory delegationArray) {
+        delegationArray = abi.decode(encodedDelegationArray, (SignedDelegation[]));
     }
 
     /**
@@ -280,32 +320,5 @@ contract Delegatable4337Account is EIP712Decoder, BaseAccount, TokenCallbackHand
         }
         return sender;
     }
-
-    // EIP 1271 Methods:
-    bytes4 constant internal MAGICVALUE = 0x1626ba7e;
-
-    function isValidSignature(bytes32 _hash, bytes memory _signature)
-        public
-        view
-        returns (bytes4 magicValue)
-    {
-        address owner = owner();
-
-        // Proxy the call to the contract's owner
-        (bool success, bytes memory result) = owner.staticcall(
-            abi.encodeWithSelector(
-                this.isValidSignature.selector,
-                _hash,
-                _signature
-            )
-        );
-
-        if (success && result.length == 32) {
-            return abi.decode(result, (bytes4));
-        } else {
-            return bytes4(0); // Return an invalid magic value
-        }
-    }
-
 }
 
