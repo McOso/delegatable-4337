@@ -45,11 +45,12 @@ describe("no delegation", function () {
         pk1 = wallet1._signingKey().privateKey;
       });
     
-      beforeEach(async () => {
+    beforeEach(async () => {
         Purpose = await PurposeFactory.connect(wallet0).deploy();
-
         SmartAccount = await SmartAccountFactory.connect(wallet0).deploy(
-          CONTACT_NAME
+            entryPoint.address,
+            [await signer0.getAddress()], // signers
+            1, // threshold
         );
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
         //   wallet0
@@ -62,7 +63,7 @@ describe("no delegation", function () {
         };
 
         delegatableUtils = createSigningUtil(CONTRACT_INFO, types);
-      });
+    });
 
     it("should succeed if signed correctly", async function () {
         const signer = hre.ethers.provider.getSigner()
