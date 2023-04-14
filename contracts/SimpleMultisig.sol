@@ -43,12 +43,22 @@ contract SimpleMultisig {
             }
 
             bytes memory signature = slice(_signatures, i * 65, 65);
-            address recoveredAddress;
+            bytes32 r;
+            bytes32 s;
+            uint8 v;
 
-            // Attempt to recover the address from the signature
-            try _hash.recover(signature) returns (address addr) {
-                recoveredAddress = addr;
-            } catch {
+            // Divide the signature into r, s and v values
+            assembly {
+                r := mload(add(signature, 0x20))
+                s := mload(add(signature, 0x40))
+                v := byte(0, mload(add(signature, 0x60)))
+            }
+
+            // Recover the signer's address
+            address recoveredAddress = ecrecover(_hash, v, r, s);
+
+            // If the address is the zero address, the signature recovery has failed
+            if (recoveredAddress == address(0)) {
                 continue;
             }
 
@@ -64,6 +74,7 @@ contract SimpleMultisig {
 
         return 0;
     }
+
 
     function isAddressUsed(address[] memory usedAddresses, bool[] memory isUsed, address addr) private pure returns (bool) {
         for (uint256 i = 0; i < usedAddresses.length; i++) {
