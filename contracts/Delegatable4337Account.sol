@@ -15,7 +15,7 @@ import {Delegation, SignedDelegation, CaveatEnforcer} from "./delegatable/Caveat
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BytesLib} from "./libraries/BytesLib.sol";
 
-import {SimpleMultisig} from "./Multisig.sol";
+import {SimpleMultisig} from "./SimpleMultisig.sol";
 
 // EIP 4337 Methods
 struct UserOperation {
