@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "compile": "hardhat --show-stack-traces --max-memory 8192 compile",
+    "console": "hardhat console --network",
+    "chain": "hardhat node --network hardhat",
+    "chain:fork": "FORK_ENABLED=true hardhat node --network hardhat",
+    "test": "hardhat test"
+  },
   "dependencies": {
     "@account-abstraction/contracts": "^0.6.0",
     "@account-abstraction/sdk": "^0.5.0",
