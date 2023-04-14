@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MockDelegatable is Ownable {
+contract Purpose is Ownable {
     string public purpose = "What is my purpose?";
 
     function setPurpose(string memory purpose_) public onlyOwner {
