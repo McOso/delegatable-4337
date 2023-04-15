@@ -60,15 +60,12 @@ describe("no delegation", function () {
       });
     
     beforeEach(async () => {
-        console.log("Entry point address: ", entryPoint.address)
-
         Purpose = await PurposeFactory.connect(wallet0).deploy();
         SmartAccount = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
             [await wallet0.getAddress()], // signers
             1, // threshold
         );
-        console.log("Smart account address", SmartAccount.address);
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
         //   wallet0
         // ).deploy();
@@ -83,7 +80,6 @@ describe("no delegation", function () {
     });
 
     it("should succeed if signed correctly", async function () {
-        console.log("signer0", await signer0.getAddress())
         const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
         await signer0.sendTransaction({
@@ -98,28 +94,60 @@ describe("no delegation", function () {
           }, SmartAccount as Delegatable4337Account);
 
         const hash = await entryPoint.getUserOpHash(userOp)
-        console.log("js userOpHash", hash)
 
-        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
+        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
         const hexsign = "0x" + signatureToHexString(sign)
-        console.log('js signature: ', hexsign)
 
         //const signature = await signer.signMessage(arrayify(hash))
         // ecrover the signature using the hash
 
         userOp.signature = hexsign
 
-        console.log(hexsign.length)
-
         // convert bytes to string
         const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
-        console.log(string)
 
-        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
-        await tx.wait()
+        try {
+          const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+          await tx.wait()
+        } catch (err) {
 
-        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(1n)
-    })
+        }
+
+        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(0n);
+    });
+
+    it("should fail if signed by the wrong address", async function () {
+      const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+
+      await signer0.sendTransaction({
+          to: SmartAccount.address,
+          value: ethers.utils.parseEther("1"),
+      })
+
+      const userOp = await fillUserOp(hre, {
+          sender: SmartAccount.address,
+          initCode: "0x",
+          callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
+        }, SmartAccount as Delegatable4337Account);
+
+      const hash = await entryPoint.getUserOpHash(userOp)
+
+      const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
+      const hexsign = "0x" + signatureToHexString(sign)
+
+      //const signature = await signer.signMessage(arrayify(hash))
+      // ecrover the signature using the hash
+
+      userOp.signature = hexsign
+
+      // convert bytes to string
+      const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
+
+      const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+      await tx.wait()
+
+      expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(1n)
+  });
 })
 
 async function fillUserOp(hre: HardhatRuntimeEnvironment, userOp:Partial<UserOpStruct>, sender: Delegatable4337Account) : Promise<UserOpStruct> {
