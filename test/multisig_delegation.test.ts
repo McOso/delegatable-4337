@@ -23,7 +23,7 @@ function signatureToHexString(signature: any) {
     return rHex + sHex + vHex
 }
 
-describe.skip("delegation", function () {
+describe("multisig delegation", function () {
     const CONTACT_NAME = "Smart Account"
     let eip712domain: any
     let delegatableUtils: any
@@ -32,9 +32,11 @@ describe.skip("delegation", function () {
     let wallet0: Wallet
     let wallet1: Wallet
     let wallet2: Wallet
+    let wallet3: Wallet
     let pk0: string
     let pk1: string
     let pk2: string
+    let pk3: string
     let entryPoint: EntryPoint
   
     let AllowedMethodsEnforcer: Contract
@@ -49,7 +51,7 @@ describe.skip("delegation", function () {
         [signer0, signer1] = await getSigners();
       
         // These ones have private keys, so can be used for delegation signing:
-        [wallet0, wallet1, wallet2] = getPrivateKeys(
+        [wallet0, wallet1, wallet2, wallet3] = getPrivateKeys(
           signer0.provider as unknown as Provider
         )
         SmartAccountFactory = await ethers.getContractFactory("Delegatable4337Account")
@@ -60,6 +62,7 @@ describe.skip("delegation", function () {
         pk0 = wallet0._signingKey().privateKey
         pk1 = wallet1._signingKey().privateKey
         pk2 = wallet2._signingKey().privateKey
+        pk3 = wallet3._signingKey().privateKey
         entryPoint = await new EntryPoint__factory(signer0).deploy()
     })
     
@@ -73,16 +76,14 @@ describe.skip("delegation", function () {
             ], // signers
             2, // threshold
         )
-        console.log("Wallet0 address: ", await wallet0.getAddress());
-        console.log("Wallet1 address: ", await wallet1.getAddress());
-        console.log("Wallet2 address: ", await wallet2.getAddress());
 
         SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
             [
                 await wallet2.getAddress(),
+                await wallet3.getAddress(),
             ], // signers
-            1, // threshold
+            2, // threshold
         )
 
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
@@ -115,8 +116,8 @@ describe.skip("delegation", function () {
         }, SmartAccount as Delegatable4337Account)
 
         const hash = await entryPoint.getUserOpHash(userOp)
-        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
-        const sign2 = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
+        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk2)))
+        const sign2 = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk3)))
 
         const delegation = {
             delegate: SmartAccount2.address,
@@ -126,8 +127,10 @@ describe.skip("delegation", function () {
             nonce: 0,
         }
         const delSig = delegatableUtils.signTypedDataLocal(pk0.substring(2), "Delegation", delegation)
+        const delSig2 = delegatableUtils.signTypedDataLocal(pk1.substring(2), "Delegation", delegation)
+
         const signedDelegation = {
-          signature: delSig,
+          signature: '0x' + delSig.substring(2) + delSig2.substring(2),
           message: delegation,
           signer: SmartAccount.address,
         }

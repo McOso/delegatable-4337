@@ -173,14 +173,10 @@ describe("multisig", function () {
         const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
 
         try {
-            console.log("handling ops")
             const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
             await tx.wait()
-            console.log("handle op")
-            console.log("waited")
         } catch (err) {
-            console.log("error")
-            console.log(err)
+            expect(err).to.not.be.undefined
         }
 
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt())

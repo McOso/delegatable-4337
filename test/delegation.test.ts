@@ -71,8 +71,6 @@ describe("delegation", function () {
             ], // signers
             1, // threshold
         )
-        console.log("Wallet0 address: ", await wallet0.getAddress());
-        console.log("Wallet1 address: ", await wallet1.getAddress());
 
         SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
