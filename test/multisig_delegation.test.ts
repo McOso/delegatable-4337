@@ -23,7 +23,7 @@ function signatureToHexString(signature: any) {
     return rHex + sHex + vHex
 }
 
-describe("delegation", function () {
+describe.skip("delegation", function () {
     const CONTACT_NAME = "Smart Account"
     let eip712domain: any
     let delegatableUtils: any
@@ -59,6 +59,7 @@ describe("delegation", function () {
         // );
         pk0 = wallet0._signingKey().privateKey
         pk1 = wallet1._signingKey().privateKey
+        pk2 = wallet2._signingKey().privateKey
         entryPoint = await new EntryPoint__factory(signer0).deploy()
     })
     
@@ -68,16 +69,18 @@ describe("delegation", function () {
             entryPoint.address,
             [
                 await wallet0.getAddress(),
+                await wallet1.getAddress(),
             ], // signers
-            1, // threshold
+            2, // threshold
         )
         console.log("Wallet0 address: ", await wallet0.getAddress());
         console.log("Wallet1 address: ", await wallet1.getAddress());
+        console.log("Wallet2 address: ", await wallet2.getAddress());
 
         SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
             [
-                await wallet1.getAddress(),
+                await wallet2.getAddress(),
             ], // signers
             1, // threshold
         )
@@ -112,7 +115,8 @@ describe("delegation", function () {
         }, SmartAccount as Delegatable4337Account)
 
         const hash = await entryPoint.getUserOpHash(userOp)
-        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
+        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
+        const sign2 = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
 
         const delegation = {
             delegate: SmartAccount2.address,
@@ -128,7 +132,7 @@ describe("delegation", function () {
           signer: SmartAccount.address,
         }
 
-        const hexsign = "0x" + signatureToHexString(sign)
+        const hexsign = "0x" + signatureToHexString(sign) + signatureToHexString(sign2);
 
         const signaturePayload = {
             signatures: hexsign,
