@@ -98,16 +98,20 @@ describe("no delegation", function () {
         }, SmartAccount as Delegatable4337Account)
 
         const hash = await entryPoint.getUserOpHash(userOp)
-
         const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
-        const hexsign = "0x" + signatureToHexString(sign)
+        const hexsign = '0x' + signatureToHexString(sign)
 
         const signaturePayload = {
-            signatures: hexsign,
+            signatures: [
+                {
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: hexsign
+                },
+            ],
             delegations: [],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction('decodeSignature').outputs;
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
@@ -121,7 +125,8 @@ describe("no delegation", function () {
             const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
             await tx.wait()
         } catch (err) {
-
+            console.log(err)
+            fail();
         }
 
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
@@ -145,14 +150,19 @@ describe("no delegation", function () {
         const hash = await entryPoint.getUserOpHash(userOp)
 
         const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
-        const hexsign = "0x" + signatureToHexString(sign)
+        const hexsign = '0x' + signatureToHexString(sign)
 
         const signaturePayload = {
-            signatures: hexsign,
+            signatures: [
+                {
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: hexsign 
+                },
+            ],
             delegations: [],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction('decodeSignature').outputs;
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(

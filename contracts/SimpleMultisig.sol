@@ -2,7 +2,12 @@
 pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {EIP712Decoder} from "./TypesAndDecoders.sol";
+import {EIP712Decoder, ERC1271Contract} from "./TypesAndDecoders.sol";
+
+struct ContractAgnosticSignature {
+    bytes signature;
+    address contractAddress;
+}
 
 abstract contract SimpleMultisig is EIP712Decoder {
     using ECDSA for bytes32;
@@ -23,13 +28,19 @@ abstract contract SimpleMultisig is EIP712Decoder {
         threshold = _threshold;
     }
 
-    function isValidSignature(bytes32 _hash, bytes memory _signatures)
+    function decodeAgnosticSignatures(bytes calldata signatureField) public pure returns (ContractAgnosticSignature[] memory payload) {
+        payload = abi.decode(signatureField, (ContractAgnosticSignature[]));
+        return payload;
+    }
+
+    function isValidSignature(bytes32 _hash, bytes calldata _signatures)
         public
         view
         virtual
         returns (bytes4)
     {
-        uint8 signatureCount = uint8(_signatures.length / 65);
+        ContractAgnosticSignature[] memory signatures = decodeAgnosticSignatures(_signatures);
+        uint256 signatureCount = signatures.length;
 
         if (signatureCount < threshold) {
             return 0;
@@ -40,15 +51,15 @@ abstract contract SimpleMultisig is EIP712Decoder {
         uint8 validSignatureCount = 0;
 
         for (uint8 i = 0; i < signatureCount; i++) {
-            if (_signatures.length < (i + 1) * 65) {
-                break;
+            ContractAgnosticSignature memory signature = signatures[i];
+
+            if (signature.contractAddress != 0x0000000000000000000000000000000000000000) {
+                // EIP-1271 signature verification
+                bytes4 result = ERC1271Contract(signature.contractAddress).isValidSignature(_hash, signature.signature);
+                return result;
             }
 
-            bytes memory signature = slice(_signatures, i * 65, 65);
-
-            // Recover the signer's address
-            address recoveredAddress = recover(_hash, signature);
-
+            address recoveredAddress = recover(_hash, signature.signature);
             // If the address is the zero address, the signature recovery has failed
             if (recoveredAddress == address(0)) {
                 continue;
@@ -86,7 +97,6 @@ abstract contract SimpleMultisig is EIP712Decoder {
             }
         }
     }
-
 
     function slice(bytes memory data, uint256 start, uint256 length) private pure returns (bytes memory) {
         bytes memory result = new bytes(length);

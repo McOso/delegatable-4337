@@ -135,16 +135,23 @@ describe("multisig delegation", function () {
           signer: SmartAccount.address,
         }
 
-        const hexsign = "0x" + signatureToHexString(sign) + signatureToHexString(sign2);
-
         const signaturePayload = {
-            signatures: hexsign,
+            signatures: [
+                {
+                    contractAddress: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                    signature: sign 
+                },
+                {
+                    contractAddress: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                    signature: sign2,
+                }
+            ],
             delegations: [
                 signedDelegation,
             ],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(

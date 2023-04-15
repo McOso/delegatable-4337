@@ -15,7 +15,7 @@ import {Delegation, SignedDelegation, CaveatEnforcer} from "./delegatable/Caveat
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BytesLib} from "./libraries/BytesLib.sol";
 
-import {SimpleMultisig} from "./SimpleMultisig.sol";
+import {SimpleMultisig, ContractAgnosticSignature} from "./SimpleMultisig.sol";
 
 // EIP 4337 Methods
 struct UserOperation {
@@ -34,7 +34,7 @@ struct UserOperation {
 
 struct SignaturePayload {
     SignedDelegation[] delegations;
-    bytes signatures;
+    ContractAgnosticSignature[] signatures;
 }
 
 abstract contract ERC1271Contract {
@@ -211,7 +211,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         // TODO: may choose 712 decoding for redability
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(
             userOpHash,
-            signaturePayload.signatures
+            userOp.signature
         );
 
         // require(result == 0x1626ba7e, "INVALID_SIGNATURE");

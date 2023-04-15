@@ -104,14 +104,22 @@ describe("multisig", function () {
 
         const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
         const sign2 = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
-        const hexsign = "0x" + signatureToHexString(sign) + signatureToHexString(sign2)
 
         const signaturePayload = {
-            signatures: hexsign,
+            signatures: [
+                {
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: sign 
+                },
+                {
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: sign2,
+                }
+            ],
             delegations: [],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
@@ -150,16 +158,19 @@ describe("multisig", function () {
         }, SmartAccount as Delegatable4337Account)
 
         const hash = await entryPoint.getUserOpHash(userOp)
-
         const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
-        const hexsign = "0x" + signatureToHexString(sign)
 
         const signaturePayload = {
-            signatures: hexsign,
+            signatures: [
+                {
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: sign 
+                },
+            ],
             delegations: [],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
