@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
+import "hardhat/console.sol";
 import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
 import { eip712domainTypehash} from "./TypesAndDecoders.sol";
 import {Delegation, SignedDelegation, CaveatEnforcer} from "./delegatable/CaveatEnforcer.sol";
@@ -178,27 +179,33 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = signaturePayload.delegations.length;
-
+        console.log("Checking %d delegations", delegationsLength);
         // TODO: support publishing recipient contracts - using initCode
         // this might be possible with a caveat enforcer
         unchecked {
             for (uint256 d = 0; d < delegationsLength; d++) {
                 SignedDelegation memory signedDelegation = signaturePayload.delegations[d];
+
+                console.log("Verifying signed delegation");
                 address delegationSigner = verifySignedDelegation(signedDelegation);
+                console.log("Delegation signer: %s", delegationSigner);
 
                 Delegation memory delegation = signedDelegation.message;
 
+                console.log("Comparing delegation signer to canGrant: %s", canGrant);
                 require(
                     delegationSigner == canGrant,
                     "DelegatableCore:invalid-delegation-signer"
                 );
 
+                console.log("Comparing delegation authority to authHash:");
+                console.logBytes32(authHash);
                 require(
                     delegation.authority == authHash,
                     "DelegatableCore:invalid-authority-delegation-link"
                 );
 
-               verifyDelegationCaveats(delegation, userOp);
+                verifyDelegationCaveats(delegation, userOp);
 
                 // Store the hash of this delegation in `authHash`
                 // That way the next delegation can be verified against it.
@@ -206,6 +213,8 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
                 canGrant = delegation.delegate;
             }
         }
+
+        console.log("Can grant: %s", canGrant);
 
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
@@ -257,7 +266,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     }
 
     // splits signature fields with the asumptions that the signature is first 65 bytes and the delegation is the rest.
-    function _splitSignature(bytes memory signature) internal view returns (bytes memory, bytes memory) {
+    function _splitSignature(bytes memory signature) internal pure returns (bytes memory, bytes memory) {
         bytes memory sig = BytesLib.slice(signature, 0, 65);
         bytes memory delegation = BytesLib.slice(signature, 65, (signature.length - 65));
         return (sig, delegation);

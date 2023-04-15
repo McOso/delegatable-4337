@@ -1,6 +1,7 @@
 pragma solidity ^0.8.18;
 // SPDX-License-Identifier: MIT
 
+import "hardhat/console.sol";
 
 struct EIP712Domain {
   string name;
@@ -153,14 +154,19 @@ abstract contract EIP712Decoder {
     );
 
     if (_input.signer == 0x0000000000000000000000000000000000000000) {
+      console.log("EOA recovery");
       address recoveredSigner = recover(
         digest,
         _input.signature
       );
+      console.log("Recovered: %s", recoveredSigner);
       return recoveredSigner;
     } else {
+      console.log("EI1271 signature verification of %s", _input.signer);
       // EIP-1271 signature verification
       bytes4 result = ERC1271Contract(_input.signer).isValidSignature(digest, _input.signature);
+      console.log("Result:");
+      console.logBytes4(result);
       require(result == 0x1626ba7e, "INVALID_SIGNATURE");
       return _input.signer;
     }

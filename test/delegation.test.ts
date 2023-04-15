@@ -23,7 +23,7 @@ function signatureToHexString(signature: any) {
     return rHex + sHex + vHex
 }
 
-describe("delegation", function () {
+describe.only("delegation", function () {
     const CONTACT_NAME = "Smart Account"
     let eip712domain: any
     let delegatableUtils: any
@@ -71,6 +71,8 @@ describe("delegation", function () {
             ], // signers
             1, // threshold
         )
+        console.log("Wallet0 address: ", await wallet0.getAddress());
+        console.log("Wallet1 address: ", await wallet1.getAddress());
 
         SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
@@ -119,12 +121,11 @@ describe("delegation", function () {
             gasLimit: 0,
             nonce: 0,
         }
-        console.dir("private key 0: " + pk0)
         const delSig = delegatableUtils.signTypedDataLocal(pk0.substring(2), "Delegation", delegation)
         const signedDelegation = {
           signature: delSig,
           message: delegation,
-          signer: await wallet0.getAddress(),
+          signer: SmartAccount.address,
         }
 
         const hexsign = "0x" + signatureToHexString(sign)
@@ -135,12 +136,8 @@ describe("delegation", function () {
                 signedDelegation,
             ],
         }
-        console.log("signaturePayload");
-        console.log(JSON.stringify(signaturePayload, null, 2));
 
         const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
-        console.log("signaturePayloadTypes");
-        console.log(JSON.stringify(signaturePayloadTypes, null, 2));
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(

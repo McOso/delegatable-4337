@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712Decoder} from "./TypesAndDecoders.sol";
 
@@ -30,6 +31,7 @@ abstract contract SimpleMultisig is EIP712Decoder {
         returns (bytes4)
     {
         uint8 signatureCount = uint8(_signatures.length / 65);
+        console.log("signatureCount", signatureCount);
 
         if (signatureCount < threshold) {
             return 0;
@@ -48,6 +50,7 @@ abstract contract SimpleMultisig is EIP712Decoder {
 
             // Recover the signer's address
             address recoveredAddress = recover(_hash, signature);
+            console.log("Recovered %s", recoveredAddress);
 
             // If the address is the zero address, the signature recovery has failed
             if (recoveredAddress == address(0)) {
