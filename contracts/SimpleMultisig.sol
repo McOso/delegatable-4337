@@ -3,8 +3,9 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "hardhat/console.sol";
+import {EIP712Decoder} from "./TypesAndDecoders.sol";
 
-contract SimpleMultisig {
+abstract contract SimpleMultisig is EIP712Decoder {
     using ECDSA for bytes32;
 
     mapping(address => bool) public isOwner;
@@ -46,19 +47,13 @@ contract SimpleMultisig {
             }
 
             bytes memory signature = slice(_signatures, i * 65, 65);
-            bytes32 r;
-            bytes32 s;
-            uint8 v;
-
-            // Divide the signature into r, s and v values
-            assembly {
-                r := mload(add(signature, 0x20))
-                s := mload(add(signature, 0x40))
-                v := byte(0, mload(add(signature, 0x60)))
-            }
 
             // Recover the signer's address
-            address recoveredAddress = ecrecover(_hash, v, r, s);
+            console.log("Recovering signature of hash:");
+            console.logBytes32(_hash);
+            console.log("From signature:");
+            console.logBytes(signature);
+            address recoveredAddress = _hash.recover(signature);
             console.log("RECOVERED %s", recoveredAddress);
 
             // If the address is the zero address, the signature recovery has failed

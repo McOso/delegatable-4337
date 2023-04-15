@@ -25,9 +25,10 @@ function signatureToHexString(signature: any) {
 
 describe("no delegation", function () {
     const CONTACT_NAME = "Smart Account";
-    let CONTRACT_INFO: any;
+    let eip712domain: any;
     let delegatableUtils: any;
     let signer0: SignerWithAddress;
+    let signer1: SignerWithAddress;
     let wallet0: Wallet;
     let wallet1: Wallet;
     let pk0: string;
@@ -42,8 +43,9 @@ describe("no delegation", function () {
     let PurposeFactory: ContractFactory;
 
     before(async () => {
-        [signer0] = await getSigners();
-        
+        [signer0, signer1] = await getSigners();
+      
+        // These ones have private keys, so can be used for delegation signing:
         [wallet0, wallet1] = getPrivateKeys(
           signer0.provider as unknown as Provider
         );
@@ -63,7 +65,7 @@ describe("no delegation", function () {
         Purpose = await PurposeFactory.connect(wallet0).deploy();
         SmartAccount = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
-            [await signer0.getAddress()], // signers
+            [await wallet0.getAddress()], // signers
             1, // threshold
         );
         console.log("Smart account address", SmartAccount.address);
@@ -71,17 +73,18 @@ describe("no delegation", function () {
         //   wallet0
         // ).deploy();
     
-        CONTRACT_INFO = {
+        eip712domain = {
           chainId: SmartAccount.deployTransaction.chainId,
           verifyingContract: SmartAccount.address,
           name: CONTACT_NAME,
         };
 
-        delegatableUtils = createSigningUtil(CONTRACT_INFO, types);
+        delegatableUtils = createSigningUtil(eip712domain, types);
     });
 
     it("should succeed if signed correctly", async function () {
         console.log("signer0", await signer0.getAddress())
+        const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
         await signer0.sendTransaction({
             to: SmartAccount.address,
@@ -91,19 +94,18 @@ describe("no delegation", function () {
         const userOp = await fillUserOp(hre, {
             sender: SmartAccount.address,
             initCode: "0x",
-            callData: await callData(hre, SmartAccount.address, "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", 1, "0x"), // send 1 wei to vitalik
+            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
           }, SmartAccount as Delegatable4337Account);
 
         const hash = await entryPoint.getUserOpHash(userOp)
-        console.log("hash", hash)
+        console.log("js userOpHash", hash)
 
         const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
         const hexsign = "0x" + signatureToHexString(sign)
+        console.log('js signature: ', hexsign)
 
         //const signature = await signer.signMessage(arrayify(hash))
         // ecrover the signature using the hash
-
-        const recovered = await signer0.getAddress()
 
         userOp.signature = hexsign
 
@@ -116,7 +118,7 @@ describe("no delegation", function () {
         const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
         await tx.wait()
 
-        expect(hre.ethers.provider.getBalance("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")).to.equal(1)
+        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(1n)
     })
 })
 

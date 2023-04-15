@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
-import {EIP712Decoder, eip712domainTypehash} from "./TypesAndDecoders.sol";
+import { eip712domainTypehash} from "./TypesAndDecoders.sol";
 import {Delegation, SignedDelegation, CaveatEnforcer} from "./delegatable/CaveatEnforcer.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BytesLib} from "./libraries/BytesLib.sol";
@@ -57,7 +57,7 @@ abstract contract ERC1271Contract {
   *  has execute, eth handling methods
   *  has a single signer that can send requests through the entryPoint.
   */
-contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackHandler {
+contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     using ECDSA for bytes32;
 
     bytes32 public immutable domainHash;
