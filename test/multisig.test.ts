@@ -23,7 +23,7 @@ function signatureToHexString(signature: any) {
     return rHex + sHex + vHex;
   }
 
-describe("no delegation", function () {
+describe("multisig", function () {
     const CONTACT_NAME = "Smart Account";
     let eip712domain: any;
     let delegatableUtils: any;
@@ -68,7 +68,7 @@ describe("no delegation", function () {
             [
               await wallet0.getAddress(),
               await wallet1.getAddress(),
-              await wallet1.getAddress(),
+              await wallet2.getAddress(),
             ], // signers
             2, // threshold
         );
