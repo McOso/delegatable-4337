@@ -64,11 +64,6 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
     IEntryPoint private immutable _entryPoint;
 
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
-    }
-
     function getEIP712DomainHash(
         string memory contractName,
         string memory version,
@@ -114,11 +109,6 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
             block.chainid,
             address(this)
         );
-    }
-
-    function _onlyOwner() internal view {
-        //directly from EOA owner, or through the account itself (which gets redirected through execute())
-        require(_msgSender() == address(this), "only owner");
     }
 
     /**
@@ -196,6 +186,8 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
                 console.log("decode delegation araray");
 
         address canGrant = address(this);
+        console.log("First iteration of canGrant:");
+        console.log(canGrant);
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = delegations.length;
@@ -240,6 +232,7 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
                 // That way the next delegation can be verified against it.
                 authHash = getDelegationPacketHash(delegation);
                 canGrant = delegation.delegate;
+                console.log("CanGrant updated to: %s", canGrant);
             }
         }
 
@@ -247,15 +240,18 @@ contract Delegatable4337Account is SimpleMultisig, EIP712Decoder, TokenCallbackH
 
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
+        console.log("Can grant: %s", canGrant);
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(
             userOpHash,
             sig
         );
 
-        console.log("sig valid apparantly %s", uint256(bytes32(result)));
         // require(result == 0x1626ba7e, "INVALID_SIGNATURE");
         if (result != 0x1626ba7e){
+            console.log("Sig not valid");
             return 1;
+        } else {
+            console.log("sig valid apparantly %s", uint256(bytes32(result)));
         }
 
         return 0;

@@ -2,15 +2,16 @@ import { ethers } from "hardhat";
 import { EntryPoint, EntryPoint__factory } from "@account-abstraction/contracts"
 import { Contract, ContractFactory, utils, Wallet } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { arrayify, defaultAbiCoder, hexConcat, hexlify, keccak256 } from "ethers/lib/utils";
 import hre from "hardhat"
 import { getPrivateKeys } from "../scripts/utils/getPrivateKeys";
-import { Delegatable4337Account__factory } from "../typechain-types"
+import { Delegatable4337Account, Delegatable4337Account__factory } from "../typechain-types"
 import { Provider } from "@ethersproject/providers";
-import { callData, fillUserOp } from "../scripts/runOp"
+import { callData, UserOpStruct } from "../scripts/runOp"
 import { expect } from "chai"
 // @ts-ignore
 import { createSigningUtil } from "../scripts/signTypedData";
-import { arrayify, hexConcat } from "ethers/lib/utils";
 import { ecsign } from "ethereumjs-util";
 const types = require('../scripts/types.js');
 const { getSigners } = ethers;
@@ -91,7 +92,7 @@ describe("no delegation", function () {
             sender: SmartAccount.address,
             initCode: "0x",
             callData: await callData(hre, SmartAccount.address, "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", 1, "0x"), // send 1 wei to vitalik
-          });
+          }, SmartAccount as Delegatable4337Account);
 
         const hash = await entryPoint.getUserOpHash(userOp)
         console.log("hash", hash)
@@ -119,3 +120,21 @@ describe("no delegation", function () {
     })
 })
 
+async function fillUserOp(hre: HardhatRuntimeEnvironment, userOp:Partial<UserOpStruct>, sender: Delegatable4337Account) : Promise<UserOpStruct> {
+  if(await hre.ethers.provider.getCode(userOp.sender!) == '0x') {
+    userOp.nonce = hexlify(0);
+  } else {
+    userOp.nonce = hexlify((await sender.getNonce()).toNumber());
+  }
+  userOp.callGasLimit = hexlify(300000);
+  userOp.verificationGasLimit = hexlify(3000000);
+  userOp.preVerificationGas = hexlify(3000000);
+
+  const gasPrice = (await hre.ethers.provider.getGasPrice()).mul(2)
+
+  userOp.maxFeePerGas = hexlify(gasPrice);
+  userOp.maxPriorityFeePerGas = hexlify(gasPrice);
+  userOp.paymasterAndData = hexlify('0x');
+  userOp.signature = hexlify('0x');
+  return userOp as UserOpStruct;
+}

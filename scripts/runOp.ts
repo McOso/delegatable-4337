@@ -14,7 +14,7 @@ function getBundlerUrl(network : string) : string {
   return `https://api.pimlico.io/v1/${network}/rpc?apikey=${PIMLICO_API_KEY}`
 }
 
-interface UserOpStruct {
+export interface UserOpStruct {
   sender: string,
   nonce: BigNumberish,
   initCode : string,
