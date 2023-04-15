@@ -53,10 +53,11 @@ describe("no delegation", function () {
         // );
         pk0 = wallet0._signingKey().privateKey;
         pk1 = wallet1._signingKey().privateKey;
+        entryPoint = await new EntryPoint__factory(signer0).deploy()
       });
     
     beforeEach(async () => {
-        entryPoint = await new EntryPoint__factory(signer0).deploy()
+        console.log("Entry point address: ", entryPoint.address)
 
         Purpose = await PurposeFactory.connect(wallet0).deploy();
         SmartAccount = await SmartAccountFactory.connect(wallet0).deploy(
@@ -64,6 +65,7 @@ describe("no delegation", function () {
             [await signer0.getAddress()], // signers
             1, // threshold
         );
+        console.log("Smart account address", SmartAccount.address);
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
         //   wallet0
         // ).deploy();
@@ -78,21 +80,17 @@ describe("no delegation", function () {
     });
 
     it("should succeed if signed correctly", async function () {
-        const signer = hre.ethers.provider.getSigner()
-        console.log("signer", await signer.getAddress())
+        console.log("signer0", await signer0.getAddress())
 
-        // with one account as owner
-        const delegatable4337Account = await new Delegatable4337Account__factory(signer).deploy(entryPoint.address, [await signer.getAddress()], 1)
-
-        await signer.sendTransaction({
-            to: delegatable4337Account.address,
+        await signer0.sendTransaction({
+            to: SmartAccount.address,
             value: ethers.utils.parseEther("1"),
         })
 
         const userOp = await fillUserOp(hre, {
-            sender: delegatable4337Account.address,
+            sender: SmartAccount.address,
             initCode: "0x",
-            callData: await callData(hre, delegatable4337Account.address, "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", 1, "0x"), // send 1 wei to vitalik
+            callData: await callData(hre, SmartAccount.address, "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", 1, "0x"), // send 1 wei to vitalik
           });
 
         const hash = await entryPoint.getUserOpHash(userOp)
@@ -104,7 +102,7 @@ describe("no delegation", function () {
         //const signature = await signer.signMessage(arrayify(hash))
         // ecrover the signature using the hash
 
-        const recovered = await signer.getAddress()
+        const recovered = await signer0.getAddress()
 
         userOp.signature = hexsign
 
@@ -114,7 +112,7 @@ describe("no delegation", function () {
         const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
         console.log(string)
 
-        const tx = await entryPoint.handleOps([userOp], await signer.getAddress(), { gasLimit: 10000000 })
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
         await tx.wait()
 
         expect(hre.ethers.provider.getBalance("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")).to.equal(1)
