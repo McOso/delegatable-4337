@@ -1,0 +1,11 @@
+{
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true
+    },
+    "eslint.packageManager": "yarn",
+    "eslint.validate": [
+        "javascript",
+        "typescript",
+        "json"
+    ],
+}

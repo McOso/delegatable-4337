@@ -10,7 +10,10 @@
     "@account-abstraction/contracts": "^0.6.0",
     "@account-abstraction/sdk": "^0.5.0",
     "@metamask/eth-sig-util": "^5.0.2",
+    "@typescript-eslint/eslint-plugin": "^5.58.0",
+    "@typescript-eslint/parser": "^5.58.0",
     "dotenv": "^16.0.3",
+    "eslint": "^8.38.0",
     "ethereumjs-util": "^7.1.5"
   },
   "devDependencies": {

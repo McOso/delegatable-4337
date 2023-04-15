@@ -17,8 +17,6 @@ import {BytesLib} from "./libraries/BytesLib.sol";
 
 import {SimpleMultisig} from "./SimpleMultisig.sol";
 
-import "hardhat/console.sol";
-
 // EIP 4337 Methods
 struct UserOperation {
     address sender;
@@ -146,14 +144,9 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
     external returns (uint256 validationData) {
-        console.log("start");
         _requireFromEntryPointOrOwner();
-        console.log("passed first check");
         validationData = _validateSignature(userOp, userOpHash);
-        console.log("asdf");
-        console.log("sig check: %s", validationData);
         _payPrefund(missingAccountFunds);
-        console.log("missing account funds: %s", missingAccountFunds);
     }
 
     /**
@@ -178,14 +171,10 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
 
         _requireFromEntryPointOrOwner();
 
-        console.log("ashdakdh");
-
         // split signature into signature and delegation
         SignaturePayload memory signaturePayload = decodeSignature(userOp.signature); 
 
         address canGrant = address(this);
-        console.log("First iteration of canGrant:");
-        console.log(canGrant);
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = signaturePayload.delegations.length;
@@ -230,15 +219,11 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
                 // That way the next delegation can be verified against it.
                 authHash = getDelegationPacketHash(delegation);
                 canGrant = delegation.delegate;
-                console.log("CanGrant updated to: %s", canGrant);
             }
         }
 
-                console.log("passed for loop");
-
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
-        console.log("Can grant: %s", canGrant);
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(
             userOpHash,
             signaturePayload.signatures
@@ -246,10 +231,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
 
         // require(result == 0x1626ba7e, "INVALID_SIGNATURE");
         if (result != 0x1626ba7e){
-            console.log("Sig not valid");
             return 1;
-        } else {
-            console.log("sig valid apparantly %s", uint256(bytes32(result)));
         }
 
         return 0;
