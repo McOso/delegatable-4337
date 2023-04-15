@@ -23,7 +23,7 @@ function signatureToHexString(signature: any) {
     return rHex + sHex + vHex;
   }
 
-describe.only("delegation", function () {
+describe("delegation", function () {
     const CONTACT_NAME = "Smart Account";
     let eip712domain: any;
     let delegatableUtils: any;
