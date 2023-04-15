@@ -209,22 +209,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
                     "DelegatableCore:invalid-authority-delegation-link"
                 );
 
-                // Each delegation can include any number of caveats.
-                // A caveat is any condition that may reject a proposed transaction.
-                // The caveats specify an external contract that is passed the proposed tx,
-                // As well as some extra terms that are used to parameterize the enforcer.
-                // uint256 caveatsLength = delegation.caveats.length;
-                for (uint256 c = 0; c < delegation.caveats.length; c++) {
-                    CaveatEnforcer enforcer = CaveatEnforcer(
-                        delegation.caveats[c].enforcer
-                    );
-
-                    require(enforcer.enforceCaveat(
-                        delegation.caveats[c].terms,
-                        userOp.callData,
-                        getDelegationPacketHash(delegation)
-                    ), "DelegatableCore:caveat-rejected");
-                }
+               verifyDelegationCaveats(delegation, userOp);
 
                 // Store the hash of this delegation in `authHash`
                 // That way the next delegation can be verified against it.
@@ -268,6 +253,25 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         // validationData = uint256(uint160(sigAuthorizer))
         //     | (uint256(validUntil) << 160)
         //     | (uint256(validAfter) << 208);
+    }
+
+    // Each delegation can include any number of caveats.
+    // A caveat is any condition that may reject a proposed transaction.
+    // The caveats specify an external contract that is passed the proposed tx,
+    // As well as some extra terms that are used to parameterize the enforcer.
+    // uint256 caveatsLength = delegation.caveats.length;
+     function verifyDelegationCaveats(Delegation memory delegation,UserOperation calldata userOp) private  { 
+        for (uint256 c = 0; c < delegation.caveats.length; c++) {
+            CaveatEnforcer enforcer = CaveatEnforcer(
+                delegation.caveats[c].enforcer
+            );
+
+            require(enforcer.enforceCaveat(
+                delegation.caveats[c].terms,    
+                userOp.callData,
+                getDelegationPacketHash(delegation)
+            ), "DelegatableCore:caveat-rejected");
+        }
     }
 
 
