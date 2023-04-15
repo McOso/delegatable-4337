@@ -34,6 +34,11 @@ struct UserOperation {
     bytes signature;
 }
 
+struct SignaturePayload {
+    SignedDelegation[] delegations;
+    bytes signatures;
+}
+
 abstract contract ERC1271Contract {
     /**
      * @dev Should return whether the signature provided is valid for the provided hash
@@ -176,27 +181,20 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         console.log("ashdakdh");
 
         // split signature into signature and delegation
-        (bytes memory sig, bytes memory del) = _splitSignature(userOp.signature);
-
-        console.log("sig split");
-        
-        // Decode delegations
-        SignedDelegation[] memory delegations = decodeDelegationArray(del);
-
-                console.log("decode delegation araray");
+        SignaturePayload memory signaturePayload = decodeSignature(userOp.signature); 
 
         address canGrant = address(this);
         console.log("First iteration of canGrant:");
         console.log(canGrant);
         bytes32 authHash = 0x0;
 
-        uint256 delegationsLength = delegations.length;
+        uint256 delegationsLength = signaturePayload.delegations.length;
 
         // TODO: support publishing recipient contracts - using initCode
         // this might be possible with a caveat enforcer
         unchecked {
             for (uint256 d = 0; d < delegationsLength; d++) {
-                SignedDelegation memory signedDelegation = delegations[d];
+                SignedDelegation memory signedDelegation = signaturePayload.delegations[d];
                 address delegationSigner = verifySignedDelegation(signedDelegation);
 
                 Delegation memory delegation = signedDelegation.message;
@@ -243,7 +241,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         console.log("Can grant: %s", canGrant);
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(
             userOpHash,
-            sig
+            signaturePayload.signatures
         );
 
         // require(result == 0x1626ba7e, "INVALID_SIGNATURE");
@@ -273,7 +271,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     }
 
 
-    // splits signature fields with the asumptions that the signature is first bytes32 and the delegation is the rest.
+    // splits signature fields with the asumptions that the signature is first 65 bytes and the delegation is the rest.
     function _splitSignature(bytes memory signature) internal view returns (bytes memory, bytes memory) {
         bytes memory sig = BytesLib.slice(signature, 0, 65);
         bytes memory delegation = BytesLib.slice(signature, 65, (signature.length - 65));
@@ -291,6 +289,10 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
 
     function encodeDelegationArray(Delegation[] memory delegationArray) public pure returns (bytes memory encodedDelegationArray) {
         encodedDelegationArray = abi.encode(delegationArray);
+    }
+
+    function decodeSignature(bytes calldata signatureField) public pure returns (SignaturePayload memory payload) {
+        payload = abi.decode(signatureField, (SignaturePayload));
     }
 
     function decodeDelegationArray(bytes memory encodedDelegationArray) public pure returns (SignedDelegation[] memory delegationArray) {
