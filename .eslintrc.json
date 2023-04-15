@@ -1,0 +1,33 @@
+{
+    "env": {
+        "browser": true,
+        "commonjs": true,
+        "es2021": true
+    },
+    "extends": [],
+    "overrides": [],
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint"],
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "project": ["./tsconfig.json"],
+        "extraFileExtensions": [".json"]
+    },
+    "ignorePatterns": ["**/*.js", "**/*.d.ts", "package.json"],
+    "rules": {
+        "semi": ["error", "never"],
+        "quotes": [
+            "error",
+            "double",
+            {
+                "allowTemplateLiterals": true
+            }
+        ],
+        "indent": [
+            "error",
+            4
+        ],
+        "eqeqeq": ["error", "always"],
+        "max-len": ["warn", { "code": 130 }]
+    }
+}
