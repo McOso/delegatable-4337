@@ -256,7 +256,6 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         }
     }
 
-
     // splits signature fields with the asumptions that the signature is first 65 bytes and the delegation is the rest.
     function _splitSignature(bytes memory signature) internal view returns (bytes memory, bytes memory) {
         bytes memory sig = BytesLib.slice(signature, 0, 65);

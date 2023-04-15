@@ -94,7 +94,7 @@ describe("delegation", function () {
         delegatableUtils = createSigningUtil(eip712domain, types.types)
     })
 
-    it("should succeed if signed correctly", async function () {
+    it("should succeed if delegated correctly", async function () {
         const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
 
@@ -114,7 +114,7 @@ describe("delegation", function () {
 
         const delegation = {
             delegate: SmartAccount2.address,
-            authority: "0x00",
+            authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
             caveats: [],
             gasLimit: 0,
             nonce: 0,
@@ -122,8 +122,9 @@ describe("delegation", function () {
         console.dir("private key 0: " + pk0)
         const delSig = delegatableUtils.signTypedDataLocal(pk0.substring(2), "Delegation", delegation)
         const signedDelegation = {
-            delegation: delegation,
-            signature: delSig,
+          signature: delSig,
+          message: delegation,
+          signer: await wallet0.getAddress(),
         }
 
         const hexsign = "0x" + signatureToHexString(sign)
@@ -134,8 +135,12 @@ describe("delegation", function () {
                 signedDelegation,
             ],
         }
+        console.log("signaturePayload");
+        console.log(JSON.stringify(signaturePayload, null, 2));
 
         const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        console.log("signaturePayloadTypes");
+        console.log(JSON.stringify(signaturePayloadTypes, null, 2));
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
@@ -148,12 +153,8 @@ describe("delegation", function () {
         // convert bytes to string
         const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
 
-        try {
-            const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
-            await tx.wait()
-        } catch (err) {
-
-        }
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+        await tx.wait()
 
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
     })
