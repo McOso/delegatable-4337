@@ -31,8 +31,10 @@ describe("no delegation", function () {
     let signer1: SignerWithAddress;
     let wallet0: Wallet;
     let wallet1: Wallet;
+    let wallet2: Wallet;
     let pk0: string;
     let pk1: string;
+    let pk2: string;
     let entryPoint: EntryPoint
   
     let AllowedMethodsEnforcer: Contract;
@@ -46,7 +48,7 @@ describe("no delegation", function () {
         [signer0, signer1] = await getSigners();
       
         // These ones have private keys, so can be used for delegation signing:
-        [wallet0, wallet1] = getPrivateKeys(
+        [wallet0, wallet1, wallet2] = getPrivateKeys(
           signer0.provider as unknown as Provider
         );
         SmartAccountFactory = await ethers.getContractFactory("Delegatable4337Account");
@@ -81,6 +83,7 @@ describe("no delegation", function () {
 
     it("should succeed if signed correctly", async function () {
         const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+        const initialBalance = await hre.ethers.provider.getBalance(recipient);
 
         await signer0.sendTransaction({
             to: SmartAccount.address,
@@ -95,7 +98,7 @@ describe("no delegation", function () {
 
         const hash = await entryPoint.getUserOpHash(userOp)
 
-        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
+        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
         const hexsign = "0x" + signatureToHexString(sign)
 
         const signaturePayload = {
@@ -123,11 +126,12 @@ describe("no delegation", function () {
 
         }
 
-        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(0n);
+        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n);
     });
 
     it("should fail if signed by the wrong address", async function () {
       const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+      const initialBalance = await hre.ethers.provider.getBalance(recipient);
 
       await signer0.sendTransaction({
           to: SmartAccount.address,
@@ -142,7 +146,7 @@ describe("no delegation", function () {
 
       const hash = await entryPoint.getUserOpHash(userOp)
 
-      const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk0)))
+      const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
       const hexsign = "0x" + signatureToHexString(sign)
 
       const signaturePayload = {
@@ -163,13 +167,18 @@ describe("no delegation", function () {
       // convert bytes to string
       const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
 
-      console.log('handling ops');
-      const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
-      await tx.wait()
-      console.log('handle op');
-      console.log('waited');
+      try {
+        console.log('handling ops');
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+        await tx.wait()
+        console.log('handle op');
+        console.log('waited');
+      } catch (err) {
+        console.log('error');
+        console.log(err);
+      }
 
-      expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(1n)
+      expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt());
   });
 })
 

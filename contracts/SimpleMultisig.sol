@@ -53,7 +53,7 @@ abstract contract SimpleMultisig is EIP712Decoder {
             console.logBytes32(_hash);
             console.log("From signature:");
             console.logBytes(signature);
-            address recoveredAddress = _hash.recover(signature);
+            address recoveredAddress = recover(_hash, signature);
             console.log("RECOVERED %s", recoveredAddress);
 
             // If the address is the zero address, the signature recovery has failed
