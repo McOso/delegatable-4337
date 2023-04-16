@@ -205,8 +205,42 @@ describe("multisig delegation", function () {
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt())
     })
     
-    it("should fail if the nonce is incorrect")
-    it("should fail if the delegate address is invalid or not a contract")
+    it("should fail if the delegate address is invalid or not a contract", async function () {
+        const initialBalance = await hre.ethers.provider.getBalance(recipient)
+
+        // Fund SmartAccount initially:
+        await signer0.sendTransaction({
+            to: SmartAccount.address,
+            value: ethers.utils.parseEther("1"),
+        })
+
+        // Prepare Delegation:
+        const invalidDelegate = "0x1111111111111111111111111111111111111111" // Invalid delegate address
+        const delegation = {
+            delegate: invalidDelegate,
+            authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            caveats: [],
+            gasLimit: 0,
+            nonce: 0,
+        }
+        const signedDelegation = signDelegation(delegation, [pk0, pk1])
+
+        // Prepare UserOperation
+        const userOp = await createSignedUserOp({
+            sender: SmartAccount.address,
+            initCode: "0x",
+            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
+        }, [signedDelegation], [pk2, pk3], SmartAccount.address)
+
+        // Attempt to handle the operation and expect a revert
+        try {
+            await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 30000000 })
+            expect.fail("Transaction should have reverted")
+        } catch (err) {
+
+        }
+    })
+
     it("should correctly update the signer list")
     it("should correctly update the threshold")
     it("should correctly enforce authority and caveats")
