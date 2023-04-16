@@ -2,7 +2,6 @@ I'm creating a set of hardhat tests to ensure that my Solidity multisigs can del
 
 ```
     it("should succeed if delegated correctly", async function () {
-        const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
 
         // Fund SmartAccount initially:
@@ -26,16 +25,16 @@ I'm creating a set of hardhat tests to ensure that my Solidity multisigs can del
             sender: SmartAccount.address,
             initCode: "0x",
             callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
-        }, [signedDelegation], [pk2, pk3]);
+        }, [signedDelegation], [pk2, pk3], SmartAccount.address);
 
         // convert bytes to string
         const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
 
-        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 30000000 })
         await tx.wait()
 
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
     });
 ```
 
-Please write a similar test for the case where it("should correctly handle multiple consecutive delegations");
+Please write a similar test for the case where it("should fail if not enough valid signatures are provided");

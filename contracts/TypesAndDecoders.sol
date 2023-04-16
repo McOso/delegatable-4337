@@ -59,7 +59,6 @@ abstract contract ERC1271Contract {
 abstract contract EIP712Decoder {
   function getDomainHash () public view virtual returns (bytes32);
 
-
   /**
   * @dev Recover signer address from a message by using their signature
   * @param hash bytes32 message, the hash is the signed message. What is recovered is the signer address.
