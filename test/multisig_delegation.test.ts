@@ -13,6 +13,7 @@ import { expect } from "chai"
 // @ts-ignore
 import { createSigningUtil } from "../scripts/signTypedData"
 import { ecsign } from "ethereumjs-util"
+import { DelegationStruct, SignedDelegationStruct } from "../typechain-types/contracts/SimpleMultisig"
 const types = require("../scripts/types.js")
 const { getSigners } = ethers
 
@@ -47,6 +48,9 @@ describe("multisig delegation", function () {
     let Purpose: Contract
     let PurposeFactory: ContractFactory
 
+    let delegationSignaturePayloadTypes: utils.ParamType[] | undefined;
+    let signaturePayloadTypes: utils.ParamType[] | undefined;
+
     before(async () => {
         [signer0, signer1] = await getSigners();
       
@@ -64,7 +68,7 @@ describe("multisig delegation", function () {
         pk2 = wallet2._signingKey().privateKey
         pk3 = wallet3._signingKey().privateKey
         entryPoint = await new EntryPoint__factory(signer0).deploy()
-    })
+    });
     
     beforeEach(async () => {
         Purpose = await PurposeFactory.connect(wallet0).deploy()
@@ -76,6 +80,8 @@ describe("multisig delegation", function () {
             ], // signers
             2, // threshold
         )
+        delegationSignaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignatures").outputs
+        signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
 
         SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,
@@ -98,7 +104,7 @@ describe("multisig delegation", function () {
         }
 
         delegatableUtils = createSigningUtil(eip712domain, types.types)
-    })
+    });
 
     it("should succeed if delegated correctly", async function () {
         const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
@@ -109,16 +115,7 @@ describe("multisig delegation", function () {
             value: ethers.utils.parseEther("1"),
         })
 
-        const userOp = await fillUserOp(hre, {
-            sender: SmartAccount.address,
-            initCode: "0x",
-            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
-        }, SmartAccount as Delegatable4337Account)
-
-        const hash = await entryPoint.getUserOpHash(userOp)
-        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk2)))
-        const sign2 = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk3)))
-
+        // Prepare Delegation:
         const delegation = {
             delegate: SmartAccount2.address,
             authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -126,20 +123,33 @@ describe("multisig delegation", function () {
             gasLimit: 0,
             nonce: 0,
         }
-        const delSig = delegatableUtils.signTypedDataLocal(pk0.substring(2), "Delegation", delegation)
-        const delSig2 = delegatableUtils.signTypedDataLocal(pk1.substring(2), "Delegation", delegation)
+        const signedDelegation = signDelegation(delegation, [pk0, pk1]);
 
-        const delegationSignaturePayload = [
-            {
+        // Prepare UserOperation
+        const userOp = await createSignedUserOp({
+            sender: SmartAccount.address,
+            initCode: "0x",
+            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
+        }, [signedDelegation], [pk2, pk3]);
+
+        // convert bytes to string
+        const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
+
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+        await tx.wait()
+
+        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
+    });
+
+    function signDelegation (delegation: DelegationStruct, privateKeys: string[]): SignedDelegationStruct {
+        const sigs = privateKeys.map(pk => delegatableUtils.signTypedDataLocal(pk.substring(2), "Delegation", delegation))
+        const delegationSignaturePayload = sigs.map((delSig, i) => {
+            return {
                 contractAddress: ethers.constants.AddressZero,
                 signature: delSig,
-            },
-            {
-                contractAddress: ethers.constants.AddressZero,
-                signature: delSig2,
             }
-        ];
-        const delegationSignaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignatures").outputs
+        });
+
         if (!delegationSignaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedDelegationSignaturePayload = ethers.utils.defaultAbiCoder.encode(
@@ -152,24 +162,26 @@ describe("multisig delegation", function () {
           message: delegation,
           signer: SmartAccount.address,
         }
+        return signedDelegation;
+    }
+
+    async function createSignedUserOp (_userOp: Partial<UserOpStruct>, delegations, privateKeys: string[]): UserOpStruct {
+        const userOp = await fillUserOp(hre, _userOp, SmartAccount as Delegatable4337Account)
+        const hash = await entryPoint.getUserOpHash(userOp)
+
+        const sigs = privateKeys.map(pk => ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk))));
+        const signatures = sigs.map((sign, i) => {
+            return {
+                contractAddress: ethers.constants.AddressZero,
+                signature: '0x' + signatureToHexString(sign),
+            }
+        });
 
         const signaturePayload = {
-            signatures: [
-                {
-                    contractAddress: ethers.constants.AddressZero,
-                    signature: '0x' + signatureToHexString(sign),
-                },
-                {
-                    contractAddress: ethers.constants.AddressZero,
-                    signature: '0x' + signatureToHexString(sign2),
-                }
-            ],
-            delegations: [
-                signedDelegation,
-            ],
+            signatures,
+            delegations,
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
@@ -178,16 +190,9 @@ describe("multisig delegation", function () {
         )
 
         userOp.signature = encodedSignaturePayload
-
-        // convert bytes to string
-        const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
-
-        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
-        await tx.wait()
-
-        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
-    });
-})
+        return userOp;
+    }
+});
 
 async function fillUserOp(hre: HardhatRuntimeEnvironment, userOp:Partial<UserOpStruct>, sender: Delegatable4337Account) : Promise<UserOpStruct> {
     if(await hre.ethers.provider.getCode(userOp.sender!) == "0x") {
