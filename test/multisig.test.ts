@@ -142,6 +142,29 @@ describe("multisig", function () {
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
     })
 
+    it("should update the signer address and validate the change", async function () {
+        const newSigner = await ethers.Wallet.createRandom()
+    
+        // Check initial signer status
+        expect(await SmartAccount.isOwner(wallet0.address)).to.be.true
+        expect(await SmartAccount.isOwner(newSigner.address)).to.be.false
+    
+        // Update signer address
+        await SmartAccount.connect(wallet0).updateSignerAddress(wallet0.address, newSigner.address)
+    
+        // Validate that the signer address was updated
+        expect(await SmartAccount.isOwner(wallet0.address)).to.be.false
+        expect(await SmartAccount.isOwner(newSigner.address)).to.be.true
+    
+        // Check that the owners array was updated
+        console.log("Requesting owners...")
+        const updatedOwners = await SmartAccount.getOwners()
+        console.log("updatedOwners", updatedOwners)
+        expect(updatedOwners.includes(wallet0.address)).to.be.false
+        expect(updatedOwners.includes(newSigner.address)).to.be.true
+    })
+
+
     it("should fail if signed by the wrong address", async function () {
         const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
@@ -164,7 +187,7 @@ describe("multisig", function () {
             signatures: [
                 {
                     contractAddress: ethers.constants.AddressZero,
-                    signature: '0x' + signatureToHexString(sign),
+                    signature: "0x" + signatureToHexString(sign),
                 },
             ],
             delegations: [],

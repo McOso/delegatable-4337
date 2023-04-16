@@ -112,6 +112,25 @@ abstract contract SimpleMultisig is EIP712Decoder {
         return result;
     }
 
+    function updateSignerAddress(address _oldSigner, address _newSigner) external {
+        require(isOwner[_oldSigner], "SimpleMultisig: Old signer is not an owner");
+        require(!isOwner[_newSigner], "SimpleMultisig: New signer is already an owner");
+        require(_oldSigner != _newSigner, "SimpleMultisig: Old and new signer addresses are the same");
+        require(_oldSigner == _msgSender(), "Only signer can update themselves");
+
+        // Update the owners array
+        for (uint256 i = 0; i < owners.length; i++) {
+            if (owners[i] == _oldSigner) {
+                owners[i] = _newSigner;
+                break;
+            }
+        }
+
+        // Update the isOwner mapping
+        isOwner[_oldSigner] = false;
+        isOwner[_newSigner] = true;
+    }
+
     function updateSigners(MultisigParams calldata params) external {
         require(_msgSender() == address(this), "SimpleMultisig: Signer is not this contract.");
 
@@ -149,6 +168,10 @@ abstract contract SimpleMultisig is EIP712Decoder {
             sender = msg.sender;
         }
         return sender;
+    }
+
+    function getOwners () public view returns (address[] memory) {
+        return owners;
     }
 
 }

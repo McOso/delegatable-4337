@@ -136,7 +136,6 @@ function getDelegationPacketHash(SignedDelegation memory _input) public pure ret
   return getDelegationPacketHash(_input.message);
 }
 
-
 function getDelegationPacketHash (Delegation memory _input) public pure returns (bytes32) {
   bytes memory encoded = abi.encode(
     delegationTypehash,
