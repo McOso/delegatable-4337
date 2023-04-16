@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {EIP712Decoder, ERC1271Contract} from "./TypesAndDecoders.sol";
+import {EIP712Decoder, ERC1271Contract, MultisigParams} from "./TypesAndDecoders.sol";
 
 struct ContractAgnosticSignature {
     bytes signature;
@@ -14,6 +14,7 @@ abstract contract SimpleMultisig is EIP712Decoder {
     using ECDSA for bytes32;
 
     mapping(address => bool) public isOwner;
+    address[] public owners;
     uint8 public threshold;
 
     // EIP-1271 magic value
@@ -26,6 +27,7 @@ abstract contract SimpleMultisig is EIP712Decoder {
         for (uint256 i = 0; i < _owners.length; i++) {
             isOwner[_owners[i]] = true;
         }
+        owners = _owners;
         threshold = _threshold;
     }
 
@@ -109,4 +111,44 @@ abstract contract SimpleMultisig is EIP712Decoder {
         }
         return result;
     }
+
+    function updateSigners(MultisigParams calldata params) external {
+        require(_msgSender() == address(this), "SimpleMultisig: Signer is not this contract.");
+
+        require(params.signers.length > 0, "SimpleMultisig: At least one owner required");
+        require(params.threshold > 0 && params.threshold <= params.signers.length, "SimpleMultisig: Invalid threshold");
+
+        // Clear current owners mapping
+        uint currentOwnersCount = owners.length;
+        for (uint256 i = 0; i < currentOwnersCount; i++) {
+            delete isOwner[owners[i]];
+        }
+        owners = params.signers;
+
+        // Add new owners to the mapping
+        currentOwnersCount = owners.length;
+        for (uint256 i = 0; i < currentOwnersCount; i++) {
+            isOwner[owners[i]] = true;
+        }
+
+        // Update the threshold
+        threshold = uint8(params.threshold);
+    }
+
+    function _msgSender() internal view virtual returns (address sender) {
+        if (msg.sender == address(this)) {
+            bytes memory array = msg.data;
+            uint index = msg.data.length;
+            assembly {
+                sender := and(
+                    mload(add(array, index)),
+                    0xffffffffffffffffffffffffffffffffffffffff
+                )
+            }
+        } else {
+            sender = msg.sender;
+        }
+        return sender;
+    }
+
 }

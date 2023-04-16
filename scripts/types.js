@@ -34,6 +34,10 @@ const typedMessage = {
       { name: "enforcer", type: "address" },
       { name: "terms", type: "bytes" },
     ],
+    MultisigParams: [
+      { name: "signers", type: "address[]" },
+      { name: "threshold", type: "uint256" },
+    ],
   },
 };
 

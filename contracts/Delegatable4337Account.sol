@@ -317,21 +317,5 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     // function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
     //     entryPoint().withdrawTo(withdrawAddress, amount);
     // }
-
-    function _msgSender() internal view virtual returns (address sender) {
-        if (msg.sender == address(this)) {
-            bytes memory array = msg.data;
-            uint index = msg.data.length;
-            assembly {
-                sender := and(
-                    mload(add(array, index)),
-                    0xffffffffffffffffffffffffffffffffffffffff
-                )
-            }
-        } else {
-            sender = msg.sender;
-        }
-        return sender;
-    }
 }
 
