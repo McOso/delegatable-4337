@@ -169,16 +169,19 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal returns (uint256 validationData) {
-
+        console.log("Validating signature");
         _requireFromEntryPointOrOwner();
 
         // split signature into signature and delegation
+        console.log("Decoding signature");
         SignaturePayload memory signaturePayload = decodeSignature(userOp.signature); 
+        console.log("decoded");
 
         address canGrant = address(this);
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = signaturePayload.delegations.length;
+        console.log("Logging delegations %d", delegationsLength);
         // TODO: support publishing recipient contracts - using initCode
         // this might be possible with a caveat enforcer
         unchecked {
@@ -211,6 +214,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
             }
         }
 
+        console.log("Concluded %s can grant. 1271 validating.", canGrant);
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(

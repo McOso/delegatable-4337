@@ -121,6 +121,14 @@ describe("multisig delegation", function () {
         }
 
         delegatableUtils = createSigningUtil(eip712domain, types.types)
+
+        console.log("Smart Account address: ", SmartAccount.address)
+        console.log("Smart Account 2 address: ", SmartAccount2.address)
+        console.log("Wallet 0 address: ", await wallet0.getAddress())
+        console.log("Wallet 1 address: ", await wallet1.getAddress())
+        console.log("Wallet 2 address: ", await wallet2.getAddress())
+        console.log("Wallet 3 address: ", await wallet3.getAddress())
+        console.log("Wallet 4 address: ", await wallet4.getAddress())
     })
 
     it("should succeed if delegated correctly", async function () {
@@ -177,6 +185,7 @@ describe("multisig delegation", function () {
             nonce: 0,
         }
         const signedDelegation = signDelegation(delegation, [pk0]) // Only one signature provided instead of the required two
+        signedDelegation.signer = SmartAccount.address
     
         // Prepare UserOperation
         const userOp = await createSignedUserOp({
@@ -273,14 +282,20 @@ describe("multisig delegation", function () {
         return signedDelegation
     }
 
-    async function createSignedUserOp (_userOp: Partial<UserOpStruct>, delegations: SignedDelegationStruct[], privateKeys: string[], senderAddress: string): Promise<UserOpStruct> {
+    async function createSignedUserOp (
+        _userOp: Partial<UserOpStruct>, 
+        delegations: SignedDelegationStruct[], 
+        privateKeys: string[],
+        senderAddress: string)
+          : Promise<UserOpStruct>
+    {
         const userOp = await fillUserOp(hre, _userOp, SmartAccount as Delegatable4337Account)
         const hash = await entryPoint.getUserOpHash(userOp)
 
         const sigs = privateKeys.map(pk => ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk))))
         const signatures = sigs.map((sign, i) => {
             return {
-                contractAddress: senderAddress,
+                contractAddress: ethers.constants.AddressZero,
                 signature: "0x" + signatureToHexString(sign),
             }
         })
