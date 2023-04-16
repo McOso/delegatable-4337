@@ -39,6 +39,6 @@ Similar to the previous test, this command will create a sender if needed.
 ### Generating types and decoders:
 
 ```
-rm contracts/TypesAndDecoders.sol && eip712-codegen --input scripts/types.js --entryPoints Delegation > contracts/TypesAndDecoders.sol
+npm run buildTypes
 ```
 

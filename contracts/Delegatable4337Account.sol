@@ -5,6 +5,7 @@ pragma solidity ^0.8.18;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -168,16 +169,19 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal returns (uint256 validationData) {
-
+        console.log("Validating signature");
         _requireFromEntryPointOrOwner();
 
         // split signature into signature and delegation
+        console.log("Decoding signature");
         SignaturePayload memory signaturePayload = decodeSignature(userOp.signature); 
+        console.log("decoded");
 
         address canGrant = address(this);
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = signaturePayload.delegations.length;
+        console.log("Logging delegations %d", delegationsLength);
         // TODO: support publishing recipient contracts - using initCode
         // this might be possible with a caveat enforcer
         unchecked {
@@ -193,6 +197,9 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
                     "DelegatableCore:invalid-delegation-signer"
                 );
 
+                console.log("Comparing authHash to authority:");
+                console.logBytes32(authHash);
+                console.logBytes32(delegation.authority);
                 require(
                     delegation.authority == authHash,
                     "DelegatableCore:invalid-authority-delegation-link"
@@ -202,11 +209,12 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
 
                 // Store the hash of this delegation in `authHash`
                 // That way the next delegation can be verified against it.
-                authHash = getDelegationPacketHash(delegation);
+                authHash = getSigneddelegationPacketHash(signedDelegation);
                 canGrant = delegation.delegate;
             }
         }
 
+        console.log("Concluded %s can grant. 1271 validating.", canGrant);
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(

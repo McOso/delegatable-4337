@@ -1,0 +1,40 @@
+I'm creating a set of hardhat tests to ensure that my Solidity multisigs can delegate between each other. Here is an example test in the suite. 
+
+```
+    it("should succeed if delegated correctly", async function () {
+        const initialBalance = await hre.ethers.provider.getBalance(recipient)
+
+        // Fund SmartAccount initially:
+        await signer0.sendTransaction({
+            to: SmartAccount.address,
+            value: ethers.utils.parseEther("1"),
+        })
+
+        // Prepare Delegation:
+        const delegation = {
+            delegate: SmartAccount2.address,
+            authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            caveats: [],
+            gasLimit: 0,
+            nonce: 0,
+        }
+        const signedDelegation = signDelegation(delegation, [pk0, pk1]);
+
+        // Prepare UserOperation
+        const userOp = await createSignedUserOp({
+            sender: SmartAccount.address,
+            initCode: "0x",
+            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
+        }, [signedDelegation], [pk2, pk3], SmartAccount.address);
+
+        // convert bytes to string
+        const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
+
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 30000000 })
+        await tx.wait()
+
+        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
+    });
+```
+
+Please write a similar test for the case where it("should fail if not enough valid signatures are provided");
