@@ -5,7 +5,6 @@ pragma solidity ^0.8.18;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -169,7 +168,6 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal returns (uint256 validationData) {
-        console.log("Validating signature");
 
         _requireFromEntryPointOrOwner();
 
@@ -177,7 +175,6 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
         SignaturePayload memory signaturePayload = decodeSignature(userOp.signature); 
 
         address canGrant = address(this);
-        console.log("%s canGrant", canGrant);
         bytes32 authHash = 0x0;
 
         uint256 delegationsLength = signaturePayload.delegations.length;
@@ -212,18 +209,15 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
 
         // EIP-1271 signature verification
         // TODO: may choose 712 decoding for redability
-        console.log("Validating EIP-1271 signature with %s", canGrant);
         bytes4 result = ERC1271Contract(canGrant).isValidSignature(
             userOpHash,
             abi.encode(signaturePayload.signatures)
         );
-        console.log("got result, requiring success");
 
         // require(result == 0x1626ba7e, "INVALID_SIGNATURE");
         if (result != 0x1626ba7e){
             return 1;
         }
-        console.log("Returning 0");
 
         return 0;
 

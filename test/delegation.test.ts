@@ -103,15 +103,7 @@ describe("delegation", function () {
             value: ethers.utils.parseEther("1"),
         })
 
-        const userOp = await fillUserOp(hre, {
-            sender: SmartAccount.address,
-            initCode: "0x",
-            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
-        }, SmartAccount as Delegatable4337Account)
-
-        const hash = await entryPoint.getUserOpHash(userOp)
-        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)))
-
+        // Create Delegation
         const delegation = {
             delegate: SmartAccount2.address,
             authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -120,11 +112,35 @@ describe("delegation", function () {
             nonce: 0,
         }
         const delSig = delegatableUtils.signTypedDataLocal(pk0.substring(2), "Delegation", delegation)
+        const delegationSignaturePayload = [
+            {
+                contractAddress: ethers.constants.AddressZero,
+                signature: delSig,
+            },
+        ];
+        const delegationSignaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignatures").outputs
+        if (!delegationSignaturePayloadTypes) throw new Error("No signature types found")
+
+        const encodedDelegationSignaturePayload = ethers.utils.defaultAbiCoder.encode(
+            delegationSignaturePayloadTypes,
+            [delegationSignaturePayload]
+        )
+
         const signedDelegation = {
-          signature: delSig,
+          signature: encodedDelegationSignaturePayload,
           message: delegation,
           signer: SmartAccount.address,
         }
+
+        // Create UserOperation
+        const userOp = await fillUserOp(hre, {
+            sender: SmartAccount.address,
+            initCode: "0x",
+            callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
+        }, SmartAccount as Delegatable4337Account)
+
+        const hash = await entryPoint.getUserOpHash(userOp)
+        const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk1)));
 
         const hexsign = "0x" + signatureToHexString(sign)
 
@@ -138,7 +154,7 @@ describe("delegation", function () {
             ],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(

@@ -129,8 +129,26 @@ describe("multisig delegation", function () {
         const delSig = delegatableUtils.signTypedDataLocal(pk0.substring(2), "Delegation", delegation)
         const delSig2 = delegatableUtils.signTypedDataLocal(pk1.substring(2), "Delegation", delegation)
 
+        const delegationSignaturePayload = [
+            {
+                contractAddress: ethers.constants.AddressZero,
+                signature: delSig,
+            },
+            {
+                contractAddress: ethers.constants.AddressZero,
+                signature: delSig2,
+            }
+        ];
+        const delegationSignaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignatures").outputs
+        if (!delegationSignaturePayloadTypes) throw new Error("No signature types found")
+
+        const encodedDelegationSignaturePayload = ethers.utils.defaultAbiCoder.encode(
+            delegationSignaturePayloadTypes,
+            [delegationSignaturePayload]
+        )
+
         const signedDelegation = {
-          signature: '0x' + delSig.substring(2) + delSig2.substring(2),
+          signature: encodedDelegationSignaturePayload,
           message: delegation,
           signer: SmartAccount.address,
         }
@@ -138,12 +156,12 @@ describe("multisig delegation", function () {
         const signaturePayload = {
             signatures: [
                 {
-                    contractAddress: '0x0000000000000000000000000000000000000000000000000000000000000000',
-                    signature: sign 
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: '0x' + signatureToHexString(sign),
                 },
                 {
-                    contractAddress: '0x0000000000000000000000000000000000000000000000000000000000000000',
-                    signature: sign2,
+                    contractAddress: ethers.constants.AddressZero,
+                    signature: '0x' + signatureToHexString(sign2),
                 }
             ],
             delegations: [
@@ -151,7 +169,7 @@ describe("multisig delegation", function () {
             ],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(

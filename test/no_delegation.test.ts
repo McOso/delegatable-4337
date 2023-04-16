@@ -24,7 +24,7 @@ function signatureToHexString(signature: any) {
     return rHex + sHex + vHex
 }
 
-describe.only("no delegation", function () {
+describe("no delegation", function () {
     const CONTACT_NAME = "Smart Account"
     let eip712domain: any
     let delegatableUtils: any
@@ -52,9 +52,6 @@ describe.only("no delegation", function () {
         [wallet0, wallet1, wallet2] = getPrivateKeys(
           signer0.provider as unknown as Provider
         )
-        console.log("wallet0", wallet0.address);
-        console.log("wallet1", wallet1.address);
-        console.log("wallet2", wallet2.address);
 
         SmartAccountFactory = await ethers.getContractFactory("Delegatable4337Account")
         PurposeFactory = await ethers.getContractFactory("Purpose")
@@ -73,7 +70,6 @@ describe.only("no delegation", function () {
             [await wallet0.getAddress()], // signers
             1, // threshold
         );
-        console.log("SmartAccount", SmartAccount.address);
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
         //   wallet0
         // ).deploy();
@@ -130,7 +126,6 @@ describe.only("no delegation", function () {
             const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
             await tx.wait()
         } catch (err) {
-            console.log(err)
             fail();
         }
 

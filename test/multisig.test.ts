@@ -109,17 +109,17 @@ describe("multisig", function () {
             signatures: [
                 {
                     contractAddress: ethers.constants.AddressZero,
-                    signature: sign 
+                    signature: "0x" + signatureToHexString(sign),
                 },
                 {
                     contractAddress: ethers.constants.AddressZero,
-                    signature: sign2,
+                    signature: "0x" + signatureToHexString(sign2),
                 }
             ],
             delegations: [],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
@@ -164,13 +164,13 @@ describe("multisig", function () {
             signatures: [
                 {
                     contractAddress: ethers.constants.AddressZero,
-                    signature: sign 
+                    signature: '0x' + signatureToHexString(sign),
                 },
             ],
             delegations: [],
         }
 
-        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignature").outputs
+        const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
