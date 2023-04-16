@@ -72,11 +72,16 @@ const verifyTypedDataSignature = (domain, types) => (signature, message, expecte
   return signer;
 };
 
+const hashTypedData = (domain, types) => (primaryType, message) => {
+  return sigUtil.TypedDataUtils.hashStruct(primaryType, message, types, 'V4');
+};
+
 const createSigningUtil = (domain, types) => {
   return {
     signTypedData: signTypedData(domain, types),
     verifyTypedDataSignature: verifyTypedDataSignature(domain, types),
     signTypedDataLocal: signTypedDataLocal(domain, types),
+    hashTypedData: hashTypedData(domain, types),
   };
 }
 

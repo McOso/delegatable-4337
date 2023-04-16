@@ -18,6 +18,11 @@ const typedMessage = {
       { name: "chainId", type: "uint256" },
       { name: "verifyingContract", type: "address" },
     ],
+    SignedDelegation: [
+      { name: "message", type: "Delegation" },
+      { name: "signature", type: "bytes" },
+      { name: "signer", type: "address"}
+    ],
     Delegation: [
       { name: "delegate", type: "address" },
       { name: "authority", type: "bytes32" },

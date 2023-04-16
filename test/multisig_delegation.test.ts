@@ -34,16 +34,21 @@ describe("multisig delegation", function () {
     let wallet1: Wallet
     let wallet2: Wallet
     let wallet3: Wallet
+    let wallet4: Wallet
+    let wallet5: Wallet
     let pk0: string
     let pk1: string
     let pk2: string
     let pk3: string
+    let pk4: string
+    let pk5: string
     let entryPoint: EntryPoint
   
     let AllowedMethodsEnforcer: Contract
     let AllowedMethodsEnforcerFactory: ContractFactory
     let SmartAccount: Contract
     let SmartAccount2: Contract
+    let SmartAccount3: Contract
     let SmartAccountFactory: ContractFactory
     let Purpose: Contract
     let PurposeFactory: ContractFactory
@@ -55,7 +60,7 @@ describe("multisig delegation", function () {
         [signer0, signer1] = await getSigners();
       
         // These ones have private keys, so can be used for delegation signing:
-        [wallet0, wallet1, wallet2, wallet3] = getPrivateKeys(
+        [wallet0, wallet1, wallet2, wallet3, wallet4, wallet5] = getPrivateKeys(
           signer0.provider as unknown as Provider
         )
         SmartAccountFactory = await ethers.getContractFactory("Delegatable4337Account")
@@ -67,6 +72,8 @@ describe("multisig delegation", function () {
         pk1 = wallet1._signingKey().privateKey
         pk2 = wallet2._signingKey().privateKey
         pk3 = wallet3._signingKey().privateKey
+        pk4 = wallet4._signingKey().privateKey
+        pk5 = wallet5._signingKey().privateKey
         entryPoint = await new EntryPoint__factory(signer0).deploy()
     });
     
@@ -92,6 +99,15 @@ describe("multisig delegation", function () {
             2, // threshold
         )
 
+        SmartAccount3 = await SmartAccountFactory.connect(wallet0).deploy(
+            entryPoint.address,
+            [
+                await wallet4.getAddress(),
+                await wallet5.getAddress(),
+            ], // signers
+            2, // threshold
+        )
+
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
         //   wallet0
         // ).deploy();
@@ -110,6 +126,7 @@ describe("multisig delegation", function () {
         const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
 
+        // Fund SmartAccount initially:
         await signer0.sendTransaction({
             to: SmartAccount.address,
             value: ethers.utils.parseEther("1"),
@@ -141,6 +158,61 @@ describe("multisig delegation", function () {
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
     });
 
+    it("should fail if not enough valid signatures are provided");
+    it("should fail if the nonce is incorrect");
+    it("should fail if the delegate address is invalid or not a contract");
+    it("should correctly update the signer list");
+    it("should correctly update the threshold");
+    it("should correctly enforce authority and caveats");
+    it("should fail if the gas limit is exceeded");
+    it("should correctly handle multiple consecutive delegations", async function () {
+        const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+        const initialBalance = await hre.ethers.provider.getBalance(recipient);
+    
+        // Fund SmartAccount initially:
+        await signer0.sendTransaction({
+            to: SmartAccount.address,
+            value: ethers.utils.parseEther("1"),
+        });
+    
+        // Prepare Delegation 1:
+        const delegation1 = {
+            delegate: SmartAccount2.address,
+            authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            caveats: [],
+            gasLimit: 0,
+            nonce: 0,
+        };
+        const signedDelegation1 = signDelegation(delegation1, [pk0, pk1]);
+
+        console.log(JSON.stringify(signedDelegation1, null, 2))
+        const delegationHash = '0x' + delegatableUtils.hashTypedData('Delegation', delegation1).toString('hex');
+        console.log('delegation hash:', delegationHash)
+    
+        // Prepare Delegation 2:
+        const delegation2 = {
+            delegate: SmartAccount3.address,
+            authority: delegationHash,
+            caveats: [],
+            gasLimit: 0,
+            nonce: 0,
+        };
+        const signedDelegation2 = signDelegation(delegation2, [pk2, pk3]);
+        signedDelegation2.signer = SmartAccount2.address;
+    
+        // Prepare UserOperation
+        const userOp = await createSignedUserOp({
+            sender: SmartAccount.address,
+            initCode: "0x",
+            callData: await callData(hre, SmartAccount3.address, recipient, 1, "0x"), // send 1 wei to recipient
+        }, [signedDelegation1, signedDelegation2], [pk4, pk5], SmartAccount3.address);
+    
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 });
+        await tx.wait();
+    
+        expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n);
+    });
+    
     function signDelegation (delegation: DelegationStruct, privateKeys: string[]): SignedDelegationStruct {
         const sigs = privateKeys.map(pk => delegatableUtils.signTypedDataLocal(pk.substring(2), "Delegation", delegation))
         const delegationSignaturePayload = sigs.map((delSig, i) => {
@@ -165,14 +237,14 @@ describe("multisig delegation", function () {
         return signedDelegation;
     }
 
-    async function createSignedUserOp (_userOp: Partial<UserOpStruct>, delegations, privateKeys: string[]): UserOpStruct {
+    async function createSignedUserOp (_userOp: Partial<UserOpStruct>, delegations: SignedDelegationStruct[], privateKeys: string[], senderAddress: string): Promise<UserOpStruct> {
         const userOp = await fillUserOp(hre, _userOp, SmartAccount as Delegatable4337Account)
         const hash = await entryPoint.getUserOpHash(userOp)
 
         const sigs = privateKeys.map(pk => ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk))));
         const signatures = sigs.map((sign, i) => {
             return {
-                contractAddress: ethers.constants.AddressZero,
+                contractAddress: senderAddress,
                 signature: '0x' + signatureToHexString(sign),
             }
         });

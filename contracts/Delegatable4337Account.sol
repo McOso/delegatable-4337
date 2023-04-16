@@ -5,6 +5,7 @@ pragma solidity ^0.8.18;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -193,6 +194,9 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
                     "DelegatableCore:invalid-delegation-signer"
                 );
 
+                console.log("Comparing authHash to authority:");
+                console.logBytes32(authHash);
+                console.logBytes32(delegation.authority);
                 require(
                     delegation.authority == authHash,
                     "DelegatableCore:invalid-authority-delegation-link"
