@@ -3,6 +3,7 @@
     "compile": "hardhat --show-stack-traces --max-memory 8192 compile",
     "console": "hardhat console --network",
     "chain": "hardhat node --network hardhat",
+    "buildTypes": "rm contracts/TypesAndDecoders.sol && eip712-codegen --input scripts/types.js --entryPoints Delegation > contracts/TypesAndDecoders.sol",
     "chain:fork": "FORK_ENABLED=true hardhat node --network hardhat",
     "test": "hardhat test"
   },
@@ -31,5 +32,22 @@
     "ts-node": "^10.9.1",
     "typechain": "^8.1.1",
     "typescript": "^5.0.2"
-  }
+  },
+  "name": "delegatable-4337",
+  "description": "## Configuring Environment Variables",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/McOso/delegatable-4337.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/McOso/delegatable-4337/issues"
+  },
+  "homepage": "https://github.com/McOso/delegatable-4337#readme"
 }

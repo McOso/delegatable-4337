@@ -206,7 +206,7 @@ contract Delegatable4337Account is SimpleMultisig, TokenCallbackHandler {
 
                 // Store the hash of this delegation in `authHash`
                 // That way the next delegation can be verified against it.
-                authHash = getDelegationPacketHash(delegation);
+                authHash = getSigneddelegationPacketHash(signedDelegation);
                 canGrant = delegation.delegate;
             }
         }

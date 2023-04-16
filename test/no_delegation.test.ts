@@ -15,6 +15,12 @@ import { createSigningUtil } from "../scripts/signTypedData"
 import { ecsign } from "ethereumjs-util"
 import { fail } from "assert"
 const types = require("../scripts/types.js")
+types.types.SignedDelegation = [
+    { name: "message", type: "Delegation" },
+    { name: "signature", type: "bytes" },
+    { name: "signer", type: "address"}
+];
+
 const { getSigners } = ethers
 
 function signatureToHexString(signature: any) {

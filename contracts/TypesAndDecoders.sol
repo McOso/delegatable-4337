@@ -1,5 +1,6 @@
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.13;
 // SPDX-License-Identifier: MIT
+
 
 struct EIP712Domain {
   string name;
@@ -10,13 +11,13 @@ struct EIP712Domain {
 
 bytes32 constant eip712domainTypehash = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-
 struct SignedDelegation {
+  Delegation message;
   bytes signature;
   address signer;
-  Delegation message;
 }
 
+bytes32 constant signeddelegationTypehash = keccak256("SignedDelegation(Delegation message,bytes signature,address signer)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats,uint256 gasLimit,uint256 nonce)");
 
 struct Delegation {
   address delegate;
@@ -100,6 +101,17 @@ abstract contract EIP712Decoder {
       keccak256(bytes(_input.version)),
       _input.chainId,
       _input.verifyingContract
+    );
+    return keccak256(encoded);
+  }
+  
+
+  function getSigneddelegationPacketHash (SignedDelegation memory _input) public pure returns (bytes32) {
+    bytes memory encoded = abi.encode(
+      signeddelegationTypehash,
+      getDelegationPacketHash(_input.message),
+      keccak256(_input.signature),
+      _input.signer
     );
     return keccak256(encoded);
   }

@@ -147,12 +147,12 @@ describe("multisig delegation", function () {
             sender: SmartAccount.address,
             initCode: "0x",
             callData: await callData(hre, SmartAccount.address, recipient, 1, "0x"), // send 1 wei to vitalik
-        }, [signedDelegation], [pk2, pk3]);
+        }, [signedDelegation], [pk2, pk3], SmartAccount.address);
 
         // convert bytes to string
         const string = ethers.utils.toUtf8String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000164141323320726576657274656420286f72204f4f472900000000000000000000")
 
-        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 })
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 30000000 })
         await tx.wait()
 
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n)
@@ -186,7 +186,7 @@ describe("multisig delegation", function () {
         const signedDelegation1 = signDelegation(delegation1, [pk0, pk1]);
 
         console.log(JSON.stringify(signedDelegation1, null, 2))
-        const delegationHash = '0x' + delegatableUtils.hashTypedData('Delegation', delegation1).toString('hex');
+        const delegationHash = '0x' + delegatableUtils.hashTypedData('SignedDelegation', signedDelegation1).toString('hex');
         console.log('delegation hash:', delegationHash)
     
         // Prepare Delegation 2:
@@ -207,7 +207,7 @@ describe("multisig delegation", function () {
             callData: await callData(hre, SmartAccount3.address, recipient, 1, "0x"), // send 1 wei to recipient
         }, [signedDelegation1, signedDelegation2], [pk4, pk5], SmartAccount3.address);
     
-        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 10000000 });
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 30000000 });
         await tx.wait();
     
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt() + 1n);
