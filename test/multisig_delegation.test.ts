@@ -245,7 +245,7 @@ describe("multisig delegation", function () {
     it("should correctly update the threshold")
     it("should correctly enforce authority and caveats")
     it("should fail if the gas limit is exceeded")
-    it.skip("should correctly handle multiple consecutive delegations", async function () {
+    it("should correctly handle multiple consecutive delegations", async function () {
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
     
         // Fund SmartAccount initially:
