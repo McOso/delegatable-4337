@@ -90,6 +90,8 @@ describe("multisig delegation", function () {
         )
         delegationSignaturePayloadTypes = SmartAccount.interface.getFunction("decodeAgnosticSignatures").outputs
         signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
+        console.log("THE TYPES:")
+        console.log(JSON.stringify(delegationSignaturePayloadTypes, null, 2))
 
         SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
             entryPoint.address,

@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {EIP712Decoder, ERC1271Contract, MultisigParams} from "./TypesAndDecoders.sol";
+import {EIP712Decoder, ERC1271Contract, MultisigParams } from "./TypesAndDecoders.sol";
 
 struct ContractAgnosticSignature {
     bytes signature;
@@ -131,7 +131,8 @@ abstract contract SimpleMultisig is EIP712Decoder {
         isOwner[_newSigner] = true;
     }
 
-    function updateSigners(MultisigParams calldata params) external {
+    function updateSigners(MultisigParams calldata params, bytes calldata signature) external {
+        address signer = validateMultisigUpdate(params, signature);
         require(_msgSender() == address(this), "SimpleMultisig: Signer is not this contract.");
 
         require(params.signers.length > 0, "SimpleMultisig: At least one owner required");

@@ -2,6 +2,7 @@ import { ethers } from "hardhat"
 import { EntryPoint, EntryPoint__factory } from "@account-abstraction/contracts"
 import { Contract, ContractFactory, utils, Wallet } from "ethers"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
+import { DelegationStruct, SignedDelegationStruct, MultisigParamsStruct } from "../typechain-types/contracts/SimpleMultisig"
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { arrayify, defaultAbiCoder, hexConcat, hexlify, keccak256 } from "ethers/lib/utils"
 import hre from "hardhat"
@@ -25,6 +26,7 @@ function signatureToHexString(signature: any) {
 
 describe("multisig", function () {
     const CONTACT_NAME = "Smart Account"
+    const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
     let eip712domain: any
     let delegatableUtils: any
     let signer0: SignerWithAddress
@@ -32,23 +34,33 @@ describe("multisig", function () {
     let wallet0: Wallet
     let wallet1: Wallet
     let wallet2: Wallet
+    let wallet3: Wallet
+    let wallet4: Wallet
+    let wallet5: Wallet
     let pk0: string
     let pk1: string
     let pk2: string
+    let pk3: string
+    let pk4: string
+    let pk5: string
     let entryPoint: EntryPoint
   
     let AllowedMethodsEnforcer: Contract
     let AllowedMethodsEnforcerFactory: ContractFactory
     let SmartAccount: Contract
+    let SmartAccount2: Contract
     let SmartAccountFactory: ContractFactory
     let Purpose: Contract
     let PurposeFactory: ContractFactory
+
+    let delegationSignaturePayloadTypes: utils.ParamType[] | undefined
+    let signaturePayloadTypes: utils.ParamType[] | undefined
 
     before(async () => {
         [signer0, signer1] = await getSigners();
       
         // These ones have private keys, so can be used for delegation signing:
-        [wallet0, wallet1, wallet2] = getPrivateKeys(
+        [wallet0, wallet1, wallet2, wallet3, wallet4, wallet5] = getPrivateKeys(
           signer0.provider as unknown as Provider
         )
         SmartAccountFactory = await ethers.getContractFactory("Delegatable4337Account")
@@ -72,6 +84,15 @@ describe("multisig", function () {
             ], // signers
             2, // threshold
         )
+        SmartAccount2 = await SmartAccountFactory.connect(wallet0).deploy(
+            entryPoint.address,
+            [
+                await wallet3.getAddress(),
+                await wallet4.getAddress(),
+                await wallet5.getAddress(),
+            ], // signers
+            2, // threshold
+        )
         // AllowedMethodsEnforcer = await AllowedMethodsEnforcerFactory.connect(
         //   wallet0
         // ).deploy();
@@ -86,7 +107,6 @@ describe("multisig", function () {
     })
 
     it("should succeed if signed correctly", async function () {
-        const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
 
         await signer0.sendTransaction({
@@ -166,7 +186,6 @@ describe("multisig", function () {
 
 
     it("should fail if signed by the wrong address", async function () {
-        const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
         const initialBalance = await hre.ethers.provider.getBalance(recipient)
 
         await signer0.sendTransaction({
@@ -215,6 +234,85 @@ describe("multisig", function () {
 
         expect((await hre.ethers.provider.getBalance(recipient)).toBigInt()).to.equal(initialBalance.toBigInt())
     })
+
+    it("should correctly update the signer list", async function () {
+        const initialBalance = await hre.ethers.provider.getBalance(recipient)
+    
+        // Fund SmartAccount initially:
+        await signer0.sendTransaction({
+            to: SmartAccount.address,
+            value: ethers.utils.parseEther("1"),
+        })
+    
+        console.log("prepare new stuff")
+        // Encode the new signer list and threshold
+        let multisigParams: MultisigParamsStruct = {
+            signers: [wallet3.address, wallet4.address, wallet5.address],
+            threshold: 2, 
+        }
+
+        // Sign the new signer list and threshold
+        let updateSignature = delegatableUtils.multiSignTypedDataLocal(
+            [pk0, pk1],
+            "MultisigParams",
+            multisigParams,
+            SmartAccount.address
+        )
+
+        // Prepare UserOperation for updating signer list
+        console.log("prepare user op")
+        const userOp = await createSignedUserOp({
+            sender: SmartAccount.addres,
+            initCode: "0x",
+            callData: SmartAccount.interface.encodeFunctionData("updateSigners", [updateSignature]),
+        }, [], [pk0, pk1], SmartAccount.address)
+        console.log("prepared user op")
+    
+        // Update the signer list
+        const tx = await entryPoint.handleOps([userOp], await signer0.getAddress(), { gasLimit: 30000000 })
+        console.log("handled ops")
+        await tx.wait()
+        console.log("tx mined")
+    
+        // Validate the new signer list and threshold
+        const updatedOwners = await SmartAccount.getOwners()
+        expect(updatedOwners).to.include.members(newSigners)
+        expect(await SmartAccount.threshold()).to.equal(newThreshold)
+    })
+
+    async function createSignedUserOp (
+        _userOp: Partial<UserOpStruct>, 
+        delegations: SignedDelegationStruct[], 
+        privateKeys: string[],
+        senderAddress: string)
+          : Promise<UserOpStruct>
+    {
+        const userOp = await fillUserOp(hre, _userOp, SmartAccount as Delegatable4337Account)
+        const hash = await entryPoint.getUserOpHash(userOp)
+
+        const sigs = privateKeys.map(pk => ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(pk))))
+        const signatures = sigs.map((sign, i) => {
+            return {
+                contractAddress: ethers.constants.AddressZero,
+                signature: "0x" + signatureToHexString(sign),
+            }
+        })
+
+        const signaturePayload = {
+            signatures,
+            delegations,
+        }
+
+        if (!signaturePayloadTypes) throw new Error("No signature types found")
+
+        const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
+            signaturePayloadTypes,
+            [signaturePayload]
+        )
+
+        userOp.signature = encodedSignaturePayload
+        return userOp
+    }
 })
 
 async function fillUserOp(hre: HardhatRuntimeEnvironment, userOp:Partial<UserOpStruct>, sender: Delegatable4337Account) : Promise<UserOpStruct> {

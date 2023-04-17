@@ -37,4 +37,7 @@ I'm creating a set of hardhat tests to ensure that my Solidity multisigs can del
     });
 ```
 
-Please write a similar test for the case where it("should fail if not enough valid signatures are provided");
+Please write a similar test for the case where it("should correctly update the signer list")
+
+Given this function and syntax for performing signTypedData signatures:
+

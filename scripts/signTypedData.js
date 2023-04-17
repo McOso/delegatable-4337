@@ -1,4 +1,69 @@
 const sigUtil = require('@metamask/eth-sig-util');
+import { utils } from "ethers"
+
+const contractAgnosticPayloadType = [
+  {
+    "name": "payload",
+    "type": "tuple[]",
+    "indexed": null,
+    "components": [
+      {
+        "name": "signature",
+        "type": "bytes",
+        "indexed": null,
+        "components": null,
+        "arrayLength": null,
+        "arrayChildren": null,
+        "baseType": "bytes",
+        "_isParamType": true
+      },
+      {
+        "name": "contractAddress",
+        "type": "address",
+        "indexed": null,
+        "components": null,
+        "arrayLength": null,
+        "arrayChildren": null,
+        "baseType": "address",
+        "_isParamType": true
+      }
+    ],
+    "arrayLength": -1,
+    "arrayChildren": {
+      "name": null,
+      "type": "tuple",
+      "indexed": null,
+      "components": [
+        {
+          "name": "signature",
+          "type": "bytes",
+          "indexed": null,
+          "components": null,
+          "arrayLength": null,
+          "arrayChildren": null,
+          "baseType": "bytes",
+          "_isParamType": true
+        },
+        {
+          "name": "contractAddress",
+          "type": "address",
+          "indexed": null,
+          "components": null,
+          "arrayLength": null,
+          "arrayChildren": null,
+          "baseType": "address",
+          "_isParamType": true
+        }
+      ],
+      "arrayLength": null,
+      "arrayChildren": null,
+      "baseType": "tuple",
+      "_isParamType": true
+    },
+    "baseType": "array",
+    "_isParamType": true
+  }
+]
 
 const signTypedData = (domain, types) => async (fromAddress, primaryType, message) => {
   try {
@@ -45,6 +110,29 @@ const signTypedDataLocal = (domain, types) => (privateKey, primaryType, message)
   return signature;
 };
 
+const multiSignTypedDataLocal = (domain, types) => (privateKeys, primaryType, message, fromAddress) => {
+  const sigs = privateKeys.map(pk => signTypedDataLocal(pk.substring(2), primaryType, message))
+  const signaturePayload = sigs.map((sig, i) => {
+      return {
+          contractAddress: ethers.constants.AddressZero,
+          signature: sig,
+      }
+  })
+
+  const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
+    contractAgnosticPayloadType,
+    [signaturePayload]
+  )
+
+  const signedDelegation = {
+      signature: encodedDelegationSignaturePayload,
+      message: delegation,
+      signer: fromAddress,
+  }
+  return signedDelegation  
+};
+
+
 // Define a function to verify the signature using eth-sig-util
 const verifyTypedDataSignature = (domain, types) => (signature, message, expectedAddress) => {
   // Combine the domain and message to create the full typed data object
@@ -82,7 +170,8 @@ const createSigningUtil = (domain, types) => {
     verifyTypedDataSignature: verifyTypedDataSignature(domain, types),
     signTypedDataLocal: signTypedDataLocal(domain, types),
     hashTypedData: hashTypedData(domain, types),
+    multiSignTypedDataLocal: multiSignTypedDataLocal(domain, types),
   };
 }
 
-module.exports = { signTypedData, verifyTypedDataSignature, createSigningUtil }
+module.exports = { signTypedData, verifyTypedDataSignature, createSigningUtil, multiSignTypedDataLocal }
