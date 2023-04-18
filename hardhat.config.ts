@@ -7,6 +7,7 @@ import { hexlify } from "ethers/lib/utils"
 import { Signer, Wallet, ethers } from "ethers"
 import "@typechain/hardhat"
 import "@nomiclabs/hardhat-ethers"
+import "@nomicfoundation/hardhat-chai-matchers"
 import { Delegatable4337Account, Delegatable4337Account__factory } from "./typechain-types"
 require("dotenv").config()
 

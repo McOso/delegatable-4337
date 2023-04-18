@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "clean": "rm -rf cache/ artifacts/",
     "compile": "hardhat --show-stack-traces --max-memory 8192 compile",
     "console": "hardhat console --network",
     "chain": "hardhat node --network hardhat",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@metamask/eth-sig-util": "^5.0.2",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@typechain/ethers-v5": "^10.2.0",
