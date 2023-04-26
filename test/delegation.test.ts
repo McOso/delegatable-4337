@@ -157,6 +157,14 @@ describe("delegation", function () {
         const signaturePayloadTypes = SmartAccount.interface.getFunction("decodeSignature").outputs
         if (!signaturePayloadTypes) throw new Error("No signature types found")
 
+        console.log("______________________________________________________")
+        console.log("signaturePayloadTypes", signaturePayloadTypes)
+        console.log("______________________________________________________")
+        console.log("signaturePayloadTypes json", JSON.stringify(signaturePayloadTypes))
+        console.log("______________________________________________________")
+        console.log("signaturePayloadTypes raw", signaturePayloadTypes[0].components)
+        console.log("______________________________________________________")
+
         const encodedSignaturePayload = ethers.utils.defaultAbiCoder.encode(
             signaturePayloadTypes,
             [signaturePayload]

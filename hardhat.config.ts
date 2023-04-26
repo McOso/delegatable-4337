@@ -69,6 +69,10 @@ const paymasterFlow = async (hre: any, contract?: string, usePaymaster = true) =
     const signer = await hre.ethers.getSigner()
     const signerAddress = await signer.getAddress()
     console.log("Got signer:", signerAddress)
+
+    const accounts: any = hre.config.networks.hardhat.accounts;
+    const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/0`);
+
     let initCode = "0x"
 
     let delegatable4337Account
@@ -97,7 +101,7 @@ const paymasterFlow = async (hre: any, contract?: string, usePaymaster = true) =
         console.log("---------------------------------------------")
     }
     console.log("Signing user operation with owner...")
-    userOp.signature = hexlify(await signUserOp(hre, userOp, signer))
+    userOp.signature = hexlify(await signUserOp(hre, userOp, signer, wallet))
     console.log("User operation signature generated:", userOp.signature)
     console.log("---------------------------------------------")
     console.log("Sending user operation to Pimlico bundler (eth_sendUserOperation)...")
@@ -126,7 +130,7 @@ task("test-paymaster", "Test paymaster")
 task("test-bundler", "Test bundler")
     .addOptionalParam("contract", "Delegatable4337Contract address")
     .setAction(async (taskArgs, hre) => {
-        paymasterFlow(hre, taskArgs.contract, false)
+        await paymasterFlow(hre, taskArgs.contract, false)
     })
 
 // verify contract on etherscan

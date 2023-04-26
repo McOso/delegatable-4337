@@ -5,7 +5,8 @@
     "chain": "hardhat node --network hardhat",
     "buildTypes": "rm contracts/TypesAndDecoders.sol && eip712-codegen --input scripts/types.js --entryPoints Delegation MultisigParams > contracts/TypesAndDecoders.sol",
     "chain:fork": "FORK_ENABLED=true hardhat node --network hardhat",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "typechain": "typechain --target=ethers-v5 \"./abis/*.json\" --out-dir \"./typechain-types\""
   },
   "dependencies": {
     "@account-abstraction/contracts": "^0.6.0",

@@ -1,9 +1,10 @@
 import { JsonRpcProvider } from "@ethersproject/providers"
-import { BigNumberish, Signer } from "ethers"
+import { BigNumberish, Signer, Wallet, utils, constants } from "ethers"
 import { EntryPoint__factory } from "@account-abstraction/contracts"
 import { Delegatable4337Account, Delegatable4337Account__factory } from "../typechain-types"
 import { arrayify, defaultAbiCoder, hexConcat, hexlify, keccak256 } from "ethers/lib/utils"
 import { HardhatRuntimeEnvironment } from "hardhat/types"
+import { ecsign } from "ethereumjs-util"
 
 require("dotenv").config()
 
@@ -55,10 +56,40 @@ export async function getUserOperationReceipt(hre : HardhatRuntimeEnvironment, u
     return receipt
 }
 
-export async function signUserOp(hre: HardhatRuntimeEnvironment, userOp : UserOpStruct, signer : Signer) : Promise<string> {
+function signatureToHexString(signature: any) {
+    const rHex = signature.r.toString("hex")
+    const sHex = signature.s.toString("hex")
+    const vHex = signature.v.toString(16).padStart(2, "0") // Convert bigint to hexadecimal and pad with leading zero if necessary
+    return rHex + sHex + vHex
+}
+
+export async function signUserOp(hre: HardhatRuntimeEnvironment, userOp : UserOpStruct, signer : Signer, wallet: Wallet) : Promise<string> {
     const entryPoint = EntryPoint__factory.connect(config[hre.network.name].entrypoint, hre.ethers.provider)
-    const signature = await signer.signMessage(arrayify(await entryPoint.getUserOpHash(userOp)))
-    return signature
+    // const signature = await signer.signMessage(arrayify(await entryPoint.getUserOpHash(userOp)))
+    // return signature
+
+    const hash = await entryPoint.getUserOpHash(userOp)
+    const sign = ecsign(Buffer.from(arrayify(hash)), Buffer.from(arrayify(wallet.privateKey)));
+
+    const hexsign = "0x" + signatureToHexString(sign)
+
+    const signaturePayload = {
+        signatures: [{
+            contractAddress: constants.AddressZero,
+            signature: hexsign,
+        }],
+        delegations: [],
+    }
+    const sigTypesString = `[{"name":"payload","type":"tuple","indexed":null,"components":[{"name":"delegations","type":"tuple[]","indexed":null,"components":[{"name":"message","type":"tuple","indexed":null,"components":[{"name":"delegate","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true},{"name":"authority","type":"bytes32","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes32","_isParamType":true},{"name":"caveats","type":"tuple[]","indexed":null,"components":[{"name":"enforcer","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true},{"name":"terms","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true}],"arrayLength":-1,"arrayChildren":{"name":null,"type":"tuple","indexed":null,"components":[{"name":"enforcer","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true},{"name":"terms","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true},"baseType":"array","_isParamType":true},{"name":"gasLimit","type":"uint256","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"uint256","_isParamType":true},{"name":"nonce","type":"uint256","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"uint256","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true},{"name":"signature","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true},{"name":"signer","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true}],"arrayLength":-1,"arrayChildren":{"name":null,"type":"tuple","indexed":null,"components":[{"name":"message","type":"tuple","indexed":null,"components":[{"name":"delegate","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true},{"name":"authority","type":"bytes32","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes32","_isParamType":true},{"name":"caveats","type":"tuple[]","indexed":null,"components":[{"name":"enforcer","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true},{"name":"terms","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true}],"arrayLength":-1,"arrayChildren":{"name":null,"type":"tuple","indexed":null,"components":[{"name":"enforcer","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true},{"name":"terms","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true},"baseType":"array","_isParamType":true},{"name":"gasLimit","type":"uint256","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"uint256","_isParamType":true},{"name":"nonce","type":"uint256","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"uint256","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true},{"name":"signature","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true},{"name":"signer","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true},"baseType":"array","_isParamType":true},{"name":"signatures","type":"tuple[]","indexed":null,"components":[{"name":"signature","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true},{"name":"contractAddress","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true}],"arrayLength":-1,"arrayChildren":{"name":null,"type":"tuple","indexed":null,"components":[{"name":"signature","type":"bytes","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"bytes","_isParamType":true},{"name":"contractAddress","type":"address","indexed":null,"components":null,"arrayLength":null,"arrayChildren":null,"baseType":"address","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true},"baseType":"array","_isParamType":true}],"arrayLength":null,"arrayChildren":null,"baseType":"tuple","_isParamType":true}]`
+    const signaturePayloadTypes = JSON.parse(sigTypesString)
+    if (!signaturePayloadTypes) throw new Error("No signature types found")
+
+    const encodedSignaturePayload = utils.defaultAbiCoder.encode(
+        signaturePayloadTypes,
+        [signaturePayload]
+    )
+
+    return encodedSignaturePayload
 }
 
 export async function callData(hre: HardhatRuntimeEnvironment, accountAddress: string, to : string, value: BigNumberish, data: string) : Promise<string> {
@@ -74,7 +105,7 @@ export async function fillUserOp(hre: HardhatRuntimeEnvironment, userOp:Partial<
     } else {
         userOp.nonce = hexlify((await sender.getNonce()).toNumber())
     }
-    userOp.callGasLimit = hexlify(300000)
+    userOp.callGasLimit = hexlify(3000000)
     userOp.verificationGasLimit = hexlify(3000000)
     userOp.preVerificationGas = hexlify(3000000)
 
